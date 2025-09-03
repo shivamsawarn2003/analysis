@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy, Exergy & Sustainability Calculator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Energy, Exergy & Sustainability Calculator</h1>
+            <p>Comprehensive thermodynamic analysis tool for diesel engine performance</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('calculator')">Calculator</button>
+            <button class="tab" onclick="showTab('equations')">Equations Reference</button>
+        </div>
+
+        <div id="calculator-tab" class="tab-content active">
+            <div class="calculator-grid">
+                <div class="input-section">
+                    <h2 class="section-title">Input Parameters</h2>
+                    
+                    <div class="input-group">
+                        <label for="fuelMassFlow">Fuel Mass Flow Rate (kg/s):</label>
+                        <input type="number" id="fuelMassFlow" step="0.0001" value="0.0008">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="lhv">Lower Heating Value (MJ/kg):</label>
+                        <input type="number" id="lhv" step="0.1" value="42.5">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="engineSpeed">Engine Speed (rpm):</label>
+                        <input type="number" id="engineSpeed" step="1" value="1500">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="torque">Torque (Nm):</label>
+                        <input type="number" id="torque" step="0.1" value="20">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="airMassFlow">Air Mass Flow Rate (kg/s):</label>
+                        <input type="number" id="airMassFlow" step="0.001" value="0.02">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="waterMassFlow">Cooling Water Mass Flow Rate (kg/s):</label>
+                        <input type="number" id="waterMassFlow" step="0.001" value="0.15">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="waterTempIn">Water Inlet Temperature (°C):</label>
+                        <input type="number" id="waterTempIn" step="0.1" value="25">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="waterTempOut">Water Outlet Temperature (°C):</label>
+                        <input type="number" id="waterTempOut" step="0.1" value="65">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="exhaustTemp">Exhaust Gas Temperature (°C):</label>
+                        <input type="number" id="exhaustTemp" step="0.1" value="450">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="ambientTemp">Ambient Temperature (°C):</label>
+                        <input type="number" id="ambientTemp" step="0.1" value="25">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="fuelType">Fuel Type:</label>
+                        <select id="fuelType">
+                            <option value="diesel">Diesel (B0)</option>
+                            <option value="biodiesel20">Biodiesel B20</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group" id="customFuelGroup" style="display: none;">
+                        <label for="hcRatio">H/C Ratio:</label>
+                        <input type="number" id="hcRatio" step="0.01" value="1.8">
+                        <label for="ocRatio">O/C Ratio:</label>
+                        <input type="number" id="ocRatio" step="0.01" value="0.0">
+                        <label for="scRatio">S/C Ratio:</label>
+                        <input type="number" id="scRatio" step="0.001" value="0.0">
+                    </div>
+
+                    <button class="calculate-btn" onclick="calculateAll()">Calculate</button>
+                </div>
+
+                <div class="results-section">
+                    <h2 class="section-title">Results</h2>
+                    
+                    <div class="result-item">
+                        <span class="result-label">Input Energy (kW):</span>
+                        <span class="result-value" id="inputEnergy">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Brake Power (kW):</span>
+                        <span class="result-value" id="brakePower">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Cooling Water Energy (kW):</span>
+                        <span class="result-value" id="coolingWaterEnergy">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Exhaust Gas Energy (kW):</span>
+                        <span class="result-value" id="exhaustGasEnergy">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Unaccounted Energy (kW):</span>
+                        <span class="result-value" id="unaccountedEnergy">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Energy Efficiency (%):</span>
+                        <span class="result-value" id="energyEfficiency">--</span>
+                    </div>
+
+                    <hr style="margin: 20px 0; border: 1px solid #e2e8f0;">
+
+                    <div class="result-item">
+                        <span class="result-label">Input Exergy (kW):</span>
+                        <span class="result-value" id="inputExergy">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Shaft Exergy (kW):</span>
+                        <span class="result-value" id="shaftExergy">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Cooling Water Exergy Loss (kW):</span>
+                        <span class="result-value" id="coolingWaterExergy">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Exhaust Gas Exergy Loss (kW):</span>
+                        <span class="result-value" id="exhaustGasExergy">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Exergy Destruction (kW):</span>
+                        <span class="result-value" id="exergyDestruction">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Exergy Efficiency (%):</span>
+                        <span class="result-value" id="exergyEfficiency">--</span>
+                    </div>
+
+                    <hr style="margin: 20px 0; border: 1px solid #e2e8f0;">
+
+                    <div class="result-item">
+                        <span class="result-label">Sustainability Index:</span>
+                        <span class="result-value" id="sustainabilityIndex">--</span>
+                    </div>
+
+                    <div class="result-item">
+                        <span class="result-label">Exergy Performance Coefficient:</span>
+                        <span class="result-value" id="exergyPerformanceCoeff">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="equations-tab" class="tab-content">
+            <div class="equations-section">
+                <h2 class="section-title">Energy Analysis Equations</h2>
+                
+                <div class="equation">
+                    <div class="equation-title">Steady Flow Energy Equation (SFEE):</div>
+                    E<sub>in</sub> = E<sub>out</sub> = E<sub>BP</sub> + E<sub>cw</sub> + E<sub>eg</sub> + E<sub>unaccounted</sub>
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Input Fuel Energy:</div>
+                    E<sub>in</sub> = ṁ<sub>f</sub> × LHV<sub>f</sub>
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Brake Power:</div>
+                    E<sub>BP</sub> = (2π × N × T) / 60,000
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Cooling Water Energy:</div>
+                    E<sub>cw</sub> = ṁ<sub>w</sub> × Cp<sub>w</sub> × (T<sub>2</sub> - T<sub>1</sub>)
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Exhaust Gas Energy:</div>
+                    E<sub>eg</sub> = (ṁ<sub>a</sub> + ṁ<sub>f</sub>) × Cp<sub>eg</sub> × (T<sub>5</sub> - T<sub>a</sub>)
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Energy Efficiency:</div>
+                    η<sub>E</sub> = E<sub>BP</sub> / E<sub>in</sub>
+                </div>
+
+                <h2 class="section-title">Exergy Analysis Equations</h2>
+
+                <div class="equation">
+                    <div class="equation-title">Exergy Balance:</div>
+                    Ex<sub>in</sub> - Ex<sub>out</sub> = Ex<sub>destruction</sub>
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Input Exergy:</div>
+                    Ex<sub>in</sub> = ṁ<sub>f</sub> × LHV<sub>fuel</sub> × Ex<sub>chem</sub>
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Chemical Exergy Factor:</div>
+                    Ex<sub>chem</sub> = 1.0374 + 0.0159(H/C) + 0.0567(O/C) + 0.5985(S/C)[1 - 0.1737(H/C)]
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Exergy Efficiency:</div>
+                    η<sub>Ex</sub> = Ex<sub>shaft</sub> / Ex<sub>in</sub>
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Sustainability Index:</div>
+                    SI = 1 / (1 - Ex<sub>shaft</sub>)
+                </div>
+
+                <div class="equation">
+                    <div class="equation-title">Exergy Performance Coefficient:</div>
+                    EPC = Ex<sub>shaft</sub> / Ex<sub>d</sub>
+                </div>
+            </div>
+        </div>
+
+        <div class="warning">
+            <strong>Note:</strong> This calculator is based on the equations from Appendix 5 of the diesel engine research document. 
+            Default values are typical for a small diesel engine. Adjust parameters according to your specific engine and operating conditions.
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
