@@ -1,65 +1,75 @@
 // ==============================
 // Constants for thermodynamic calculations
 // ==============================
-const CP_WATER = 4.18; // kJ/kg·K - Specific heat of water
-const CP_EXHAUST = 1.15; // kJ/kg·K - Specific heat of exhaust gas
-const R_EXHAUST = 0.287; // kJ/kg·K - Gas constant for exhaust
-const AMBIENT_PRESSURE = 1.01325; // bar - Standard atmospheric pressure
-const EXHAUST_PRESSURE = 1.05; // bar - Typical exhaust pressure
+const CP_WATER = 4.18; // kJ/kg·K
+const CP_EXHAUST = 1.15; // kJ/kg·K
+const R_EXHAUST = 0.287; // kJ/kg·K
+const AMBIENT_PRESSURE = 1.01325; // bar
+const EXHAUST_PRESSURE = 1.05; // bar
 
-let runCount = 0; // counter for plotting multiple runs
+let effEnergyChart, effExergyChart;
+let crEnergyChart, crExergyChart;
 
 // ==============================
 // Chart.js Setup
 // ==============================
-let energyChart, exergyChart, siChart, epcChart;
-
 function initCharts() {
+  // Load-based charts
   const energyCtx = document.getElementById('energyChart').getContext('2d');
   const exergyCtx = document.getElementById('exergyChart').getContext('2d');
-  const siCtx = document.getElementById('siChart').getContext('2d');
-  const epcCtx = document.getElementById('epcChart').getContext('2d');
 
-  energyChart = new Chart(energyCtx, {
+  effEnergyChart = new Chart(energyCtx, {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'Energy Efficiency (%)', data: [], borderColor: '#3b82f6', fill: false }] }
+    data: { labels: [], datasets: [{ label: 'Energy Efficiency (%)', data: [], borderColor: '#3b82f6', borderWidth: 2, fill: false }] },
+    options: { responsive: true, scales: { x: { title: { display: true, text: 'Load (kg)' } }, y: { title: { display: true, text: 'Energy Efficiency (%)' } } } }
   });
 
-  exergyChart = new Chart(exergyCtx, {
+  effExergyChart = new Chart(exergyCtx, {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'Exergy Efficiency (%)', data: [], borderColor: '#10b981', fill: false }] }
+    data: { labels: [], datasets: [{ label: 'Exergy Efficiency (%)', data: [], borderColor: '#10b981', borderWidth: 2, fill: false }] },
+    options: { responsive: true, scales: { x: { title: { display: true, text: 'Load (kg)' } }, y: { title: { display: true, text: 'Exergy Efficiency (%)' } } } }
   });
 
-  siChart = new Chart(siCtx, {
+  // Compression Ratio charts
+  const crEnergyCtx = document.getElementById('crEnergyChart').getContext('2d');
+  const crExergyCtx = document.getElementById('crExergyChart').getContext('2d');
+
+  crEnergyChart = new Chart(crEnergyCtx, {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'Sustainability Index', data: [], borderColor: '#f59e0b', fill: false }] }
+    data: { labels: [], datasets: [{ label: 'Energy Efficiency (%)', data: [], borderColor: '#f97316', borderWidth: 2, fill: false }] },
+    options: { responsive: true, scales: { x: { title: { display: true, text: 'Compression Ratio' } }, y: { title: { display: true, text: 'Energy Efficiency (%)' } } } }
   });
 
-  epcChart = new Chart(epcCtx, {
+  crExergyChart = new Chart(crExergyCtx, {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'EPC', data: [], borderColor: '#ef4444', fill: false }] }
+    data: { labels: [], datasets: [{ label: 'Exergy Efficiency (%)', data: [], borderColor: '#8b5cf6', borderWidth: 2, fill: false }] },
+    options: { responsive: true, scales: { x: { title: { display: true, text: 'Compression Ratio' } }, y: { title: { display: true, text: 'Exergy Efficiency (%)' } } } }
   });
 }
 
-function updateCharts(results) {
-  runCount++;
-  const label = `Run ${runCount}`;
+// ==============================
+// Update Charts
+// ==============================
+function updateCharts(results, brakeLoad) {
+  const cr = parseFloat(document.getElementById('compressionRatio').value) || 16;
 
-  energyChart.data.labels.push(label);
-  energyChart.data.datasets[0].data.push(results.etaE);
-  energyChart.update();
+  // Load-based charts
+  effEnergyChart.data.labels.push(brakeLoad);
+  effEnergyChart.data.datasets[0].data.push(results.etaE);
+  effEnergyChart.update();
 
-  exergyChart.data.labels.push(label);
-  exergyChart.data.datasets[0].data.push(results.etaEx);
-  exergyChart.update();
+  effExergyChart.data.labels.push(brakeLoad);
+  effExergyChart.data.datasets[0].data.push(results.etaEx);
+  effExergyChart.update();
 
-  siChart.data.labels.push(label);
-  siChart.data.datasets[0].data.push(results.SI);
-  siChart.update();
+  // Compression Ratio charts
+  crEnergyChart.data.labels.push(cr);
+  crEnergyChart.data.datasets[0].data.push(results.etaE);
+  crEnergyChart.update();
 
-  epcChart.data.labels.push(label);
-  epcChart.data.datasets[0].data.push(results.EPC);
-  epcChart.update();
+  crExergyChart.data.labels.push(cr);
+  crExergyChart.data.datasets[0].data.push(results.etaEx);
+  crExergyChart.update();
 }
 
 // ==============================
@@ -145,7 +155,7 @@ function updateResults(results) {
 // Input validation
 // ==============================
 function validateInputs() {
-  const inputs = ['fuelMassFlow','lhv','engineSpeed','airMassFlow','waterMassFlow','waterTempIn','waterTempOut','exhaustTemp','ambientTemp','brakeLoad','armLength'];
+  const inputs = ['fuelMassFlow','lhv','engineSpeed','airMassFlow','waterMassFlow','waterTempIn','waterTempOut','exhaustTemp','ambientTemp','brakeLoad','armLength','compressionRatio'];
   for (let id of inputs) {
     const v = parseFloat(document.getElementById(id).value);
     if (isNaN(v) || v < 0) {
@@ -182,7 +192,6 @@ function calculateAll() {
   const T5 = parseFloat(document.getElementById('exhaustTemp').value) || 0;
   const Ta = parseFloat(document.getElementById('ambientTemp').value) || 0;
 
-  // Brake load → Torque calculation
   const brakeLoad = parseFloat(document.getElementById('brakeLoad').value) || 0; // kg
   const armLength = parseFloat(document.getElementById('armLength').value) || 0.5; // m
   const W = brakeLoad * 9.81; // N
@@ -190,7 +199,7 @@ function calculateAll() {
 
   const T1K = T1+273.15, T2K = T2+273.15, T5K = T5+273.15, TaK = Ta+273.15;
 
-  const Ein = mf * lhv * 1000; // kW (since mf is per second)
+  const Ein = mf * lhv * 1000; // kW
   const Ebp = (2 * Math.PI * N * T) / 60; // W
   const EbpKW = Ebp / 1000; // kW
 
@@ -203,8 +212,7 @@ function calculateAll() {
   const ExIn = mf * lhv * 1000 * exChem;
   const ExShaft = EbpKW;
   const ExCw = Ecw + (mw * CP_WATER * TaK * Math.log(T1K / T2K));
-  const ExEg = Eeg + ((ma+mf) * TaK * (CP_EXHAUST * Math.log(TaK / T5K)) -
-               (R_EXHAUST * Math.log(AMBIENT_PRESSURE/EXHAUST_PRESSURE)));
+  const ExEg = Eeg + ((ma+mf) * TaK * (CP_EXHAUST * Math.log(TaK / T5K)) - (R_EXHAUST * Math.log(AMBIENT_PRESSURE/EXHAUST_PRESSURE)));
   const ExD = ExIn - (ExShaft + ExCw + ExEg);
   const etaEx = (ExShaft/ExIn)*100;
   const SI = 1/(1-(ExShaft/ExIn));
@@ -214,7 +222,7 @@ function calculateAll() {
 
   setTimeout(()=>{
     updateResults(results);
-    updateCharts(results);
+    updateCharts(results, brakeLoad);
     calculateBtn.classList.remove('loading');
     calculateBtn.textContent = 'Calculate';
   },500);
@@ -227,14 +235,15 @@ function resetInputs() {
   document.getElementById('fuelMassFlow').value='0.0008';
   document.getElementById('lhv').value='42.5';
   document.getElementById('engineSpeed').value='1500';
-  document.getElementById('brakeLoad').value='10';
-  document.getElementById('armLength').value='0.5';
   document.getElementById('airMassFlow').value='0.02';
   document.getElementById('waterMassFlow').value='0.15';
   document.getElementById('waterTempIn').value='25';
   document.getElementById('waterTempOut').value='65';
   document.getElementById('exhaustTemp').value='450';
   document.getElementById('ambientTemp').value='25';
+  document.getElementById('brakeLoad').value='10';
+  document.getElementById('armLength').value='0.5';
+  document.getElementById('compressionRatio').value='16';
   document.getElementById('fuelType').value='diesel';
   toggleCustomFuelInputs();
 }
@@ -280,25 +289,18 @@ document.addEventListener('DOMContentLoaded',()=>{
   const numericInputs = document.querySelectorAll('input[type="number"]');
   numericInputs.forEach(input=>{
     input.addEventListener('input',function(){ this.value=this.value.replace(/[^0-9.-]/g,''); });
-    let timeout;
-    input.addEventListener('input',function(){
-      clearTimeout(timeout);
-      timeout=setTimeout(calculateAll,1000);
-    });
+   
   });
 
-  calculateAll();
-});
+  document.querySelector('.calculate-btn').addEventListener('click', calculateAll);
+  document.querySelector('.reset-btn').addEventListener('click', resetInputs);
+  document.querySelector('.export-btn').addEventListener('click', exportResults);
+  document.querySelector('.print-btn').addEventListener('click', printResults);
 
-document.addEventListener('keydown',function(event){
-  if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){ calculateAll(); }
-  if((event.ctrlKey||event.metaKey)&&event.key==='r'){ event.preventDefault(); resetInputs(); calculateAll(); }
-  if((event.ctrlKey||event.metaKey)&&event.key==='p'){ event.preventDefault(); printResults(); }
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(tab=>{
+    tab.addEventListener('click', (event)=>{
+      showTab(tab.dataset.tab);
+    });
+  });
 });
-
-// Expose functions globally
-window.showTab=showTab;
-window.calculateAll=calculateAll;
-window.resetInputs=resetInputs;
-window.exportResults=exportResults;
-window.printResults=printResults;
