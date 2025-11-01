@@ -73,8 +73,61 @@ body {
 /* ===== Calculator Grid ===== */
 .calculator-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 550px 1fr;
   gap: 25px;
+}
+
+
+
+/* ===== Charts ===== */
+canvas {
+  margin: 15px 0;
+  max-width: 100%;
+  min-height: 600px !important;
+  height: 600px !important;
+}
+
+#combinedChart {
+  min-height: 650px !important;
+  height: 650px !important;
+}
+
+/* Results section to accommodate larger chart */
+.results-section {
+  min-width: 700px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1400px) {
+  .calculator-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .results-section {
+    min-width: 100%;
+  }
+  
+  canvas {
+    min-height: 500px !important;
+    height: 500px !important;
+  }
+  
+  #combinedChart {
+    min-height: 550px !important;
+    height: 550px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  canvas {
+    min-height: 400px !important;
+    height: 400px !important;
+  }
+  
+  #combinedChart {
+    min-height: 450px !important;
+    height: 450px !important;
+  }
 }
 
 /* ===== Card Style (Inputs, Results, Equations) ===== */
@@ -216,6 +269,45 @@ body {
 
 /* ===== Charts ===== */
 canvas {
-  margin: 15px 0;
+  margin: 50px 0;
   max-width: 100%;
+}
+/* ===== Clear Button ===== */
+.clear-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.clear-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+/* Chart container */
+.chart-container {
+  position: relative;
+  height: 650px;
+  width: 100%;
+  margin: 20px 0;
+}
+
+@media (max-width: 1400px) {
+  .chart-container {
+    height: 550px;
+  }
+}
+
+@media (max-width: 768px) {
+  .chart-container {
+    height: 450px;
+  }
 }

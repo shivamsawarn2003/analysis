@@ -43,11 +43,11 @@
           <div class="input-group"><label for="waterTempOut">Water Outlet Temperature (°C):</label><input type="number" id="waterTempOut" step="0.1" value="65"></div>
           <div class="input-group"><label for="exhaustTemp">Exhaust Gas Temperature (°C):</label><input type="number" id="exhaustTemp" step="0.1" value="450"></div>
           <div class="input-group"><label for="ambientTemp">Ambient Temperature (°C):</label><input type="number" id="ambientTemp" step="0.1" value="25"></div>
-<!-- New Compression Ratio Input -->
-<div class="input-group">
-  <label for="compressionRatio">Compression Ratio:</label>
-  <input type="number" id="compressionRatio" step="0.1" value="16">
-</div>
+          <!-- Compression Ratio Input -->
+          <div class="input-group">
+            <label for="compressionRatio">Compression Ratio:</label>
+            <input type="number" id="compressionRatio" step="0.1" value="16">
+          </div>
           <div class="input-group">
             <label for="fuelType">Fuel Type:</label>
             <select id="fuelType">
@@ -60,55 +60,53 @@
 
           <!-- CUSTOM FUEL -->
           <div class="input-group" id="customFuelGroup" style="display: none;">
-  <h3>Custom Fuel Properties</h3>
+            <h3>Custom Fuel Properties</h3>
 
-  <!-- Ratios -->
-  <label for="hcRatio">H/C Ratio:</label>
-  <input type="number" id="hcRatio" step="0.01" value="1.8">
+            <!-- Ratios -->
+            <label for="hcRatio">H/C Ratio:</label>
+            <input type="number" id="hcRatio" step="0.01" value="1.8">
 
-  <label for="ocRatio">O/C Ratio:</label>
-  <input type="number" id="ocRatio" step="0.01" value="0.0">
+            <label for="ocRatio">O/C Ratio:</label>
+            <input type="number" id="ocRatio" step="0.01" value="0.0">
 
-  <label for="scRatio">S/C Ratio:</label>
-  <input type="number" id="scRatio" step="0.001" value="0.0">
+            <label for="scRatio">S/C Ratio:</label>
+            <input type="number" id="scRatio" step="0.001" value="0.0">
 
-  <hr>
+            <hr>
 
-  <!-- Additional Fuel Properties -->
-  <label for="fuelDensity">Density (kg/m³):</label>
-  <input type="number" id="fuelDensity" step="0.1" value="830">
+            <!-- Additional Fuel Properties -->
+            <label for="fuelDensity">Density (kg/m³):</label>
+            <input type="number" id="fuelDensity" step="0.1" value="830">
 
-  <label for="fuelViscosity">Viscosity (cSt):</label>
-  <input type="number" id="fuelViscosity" step="0.01" value="2.5">
+            <label for="fuelViscosity">Viscosity (cSt):</label>
+            <input type="number" id="fuelViscosity" step="0.01" value="2.5">
 
-  <label for="cetaneNumber">Cetane Number:</label>
-  <input type="number" id="cetaneNumber" step="0.1" value="50">
+            <label for="cetaneNumber">Cetane Number:</label>
+            <input type="number" id="cetaneNumber" step="0.1" value="50">
 
-  <label for="customLHV">Calorific Value (MJ/kg):</label>
-  <input type="number" id="customLHV" step="0.1" value="42.5">
+            <label for="customLHV">Calorific Value (MJ/kg):</label>
+            <input type="number" id="customLHV" step="0.1" value="42.5">
 
-  <label for="flashPoint">Flash Point (°C):</label>
-  <input type="number" id="flashPoint" step="0.1" value="55">
-</div>
+            <label for="flashPoint">Flash Point (°C):</label>
+            <input type="number" id="flashPoint" step="0.1" value="55">
+          </div>
 
 
           <button class="calculate-btn" onclick="calculateAll()">Calculate</button>
+          <button class="clear-btn" onclick="clearChartData()">Clear Chart Data</button>
         </div>
 
         <!-- RESULTS -->
         <div class="results-section">
           <h2 class="section-title">Results</h2>
 
-          <!-- GRAPHS -->
-          <h3>Energy Efficiency vs Load</h3><canvas id="energyChart"></canvas>
-          <h3>Exergy Efficiency vs Load</h3><canvas id="exergyChart"></canvas>
+          <!-- COMBINED GRAPH -->
+          <!-- COMBINED GRAPH -->
+          <h3>Combined Performance Analysis</h3>
+          <div class="chart-container">
+            <canvas id="combinedChart"></canvas>
+          </div>
 
-
-<h3>Energy Efficiency vs Compression Ratio</h3>
-<canvas id="crEnergyChart"></canvas>
-
-<h3>Exergy Efficiency vs Compression Ratio</h3>
-<canvas id="crExergyChart"></canvas>
           <!-- NUMERIC RESULTS -->
           <div class="result-item"><span class="result-label">Torque (Nm):</span><span class="result-value" id="torqueResult">--</span></div>
           <div class="result-item"><span class="result-label">Input Energy (kW):</span><span id="inputEnergy">--</span></div>

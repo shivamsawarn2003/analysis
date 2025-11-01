@@ -7,69 +7,206 @@ const R_EXHAUST = 0.287; // kJ/kg·K
 const AMBIENT_PRESSURE = 1.01325; // bar
 const EXHAUST_PRESSURE = 1.05; // bar
 
-let effEnergyChart, effExergyChart;
-let crEnergyChart, crExergyChart;
+let combinedChart;
 
 // ==============================
 // Chart.js Setup
 // ==============================
+// ==============================
+// Chart.js Setup
+// ==============================
 function initCharts() {
-  // Load-based charts
-  const energyCtx = document.getElementById('energyChart').getContext('2d');
-  const exergyCtx = document.getElementById('exergyChart').getContext('2d');
+  const ctx = document.getElementById('combinedChart').getContext('2d');
 
-  effEnergyChart = new Chart(energyCtx, {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: 'Energy Efficiency (%)', data: [], borderColor: '#3b82f6', borderWidth: 2, fill: false }] },
-    options: { responsive: true, scales: { x: { title: { display: true, text: 'Load (kg)' } }, y: { title: { display: true, text: 'Energy Efficiency (%)' } } } }
-  });
-
-  effExergyChart = new Chart(exergyCtx, {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: 'Exergy Efficiency (%)', data: [], borderColor: '#10b981', borderWidth: 2, fill: false }] },
-    options: { responsive: true, scales: { x: { title: { display: true, text: 'Load (kg)' } }, y: { title: { display: true, text: 'Exergy Efficiency (%)' } } } }
-  });
-
-  // Compression Ratio charts
-  const crEnergyCtx = document.getElementById('crEnergyChart').getContext('2d');
-  const crExergyCtx = document.getElementById('crExergyChart').getContext('2d');
-
-  crEnergyChart = new Chart(crEnergyCtx, {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: 'Energy Efficiency (%)', data: [], borderColor: '#f97316', borderWidth: 2, fill: false }] },
-    options: { responsive: true, scales: { x: { title: { display: true, text: 'Compression Ratio' } }, y: { title: { display: true, text: 'Energy Efficiency (%)' } } } }
-  });
-
-  crExergyChart = new Chart(crExergyCtx, {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: 'Exergy Efficiency (%)', data: [], borderColor: '#8b5cf6', borderWidth: 2, fill: false }] },
-    options: { responsive: true, scales: { x: { title: { display: true, text: 'Compression Ratio' } }, y: { title: { display: true, text: 'Exergy Efficiency (%)' } } } }
+  combinedChart = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {
+          label: 'Energy Efficiency vs Load',
+          data: [],
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59, 130, 246, 0.6)',
+          borderWidth: 3,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          showLine: true,
+          yAxisID: 'y',
+          xAxisID: 'x-load'
+        },
+        {
+          label: 'Exergy Efficiency vs Load',
+          data: [],
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.6)',
+          borderWidth: 3,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          showLine: true,
+          yAxisID: 'y',
+          xAxisID: 'x-load'
+        },
+        {
+          label: 'Energy Efficiency vs CR',
+          data: [],
+          borderColor: '#f97316',
+          backgroundColor: 'rgba(249, 115, 22, 0.6)',
+          borderWidth: 3,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          showLine: true,
+          borderDash: [5, 5],
+          yAxisID: 'y',
+          xAxisID: 'x-cr'
+        },
+        {
+          label: 'Exergy Efficiency vs CR',
+          data: [],
+          borderColor: '#8b5cf6',
+          backgroundColor: 'rgba(139, 92, 246, 0.6)',
+          borderWidth: 3,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          showLine: true,
+          borderDash: [5, 5],
+          yAxisID: 'y',
+          xAxisID: 'x-cr'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'nearest',
+        intersect: false,
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: 'Efficiency Analysis: Load & Compression Ratio Effects',
+          font: { size: 18, weight: 'bold' },
+          padding: { top: 10, bottom: 20 }
+        },
+        legend: {
+          display: true,
+          position: 'top',
+          labels: { 
+            padding: 20, 
+            font: { size: 13 },
+            boxWidth: 40,
+            boxHeight: 15
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 },
+          padding: 12,
+          callbacks: {
+            title: function(context) {
+              const dataset = context[0].dataset;
+              const value = context[0].parsed.x;
+              if (dataset.xAxisID === 'x-load') {
+                return `Load: ${value} kg`;
+              } else {
+                return `CR: ${value}`;
+              }
+            },
+            label: function(context) {
+              return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`;
+            }
+          }
+        }
+      },
+      scales: {
+        'x-load': {
+          type: 'linear',
+          position: 'bottom',
+          title: {
+            display: true,
+            text: 'Load (kg)',
+            color: '#3b82f6',
+            font: { size: 16, weight: 'bold' }
+          },
+          grid: { 
+            color: 'rgba(59, 130, 246, 0.1)',
+            lineWidth: 1
+          },
+          ticks: { 
+            color: '#3b82f6',
+            font: { size: 13 },
+            padding: 8
+          }
+        },
+        'x-cr': {
+          type: 'linear',
+          position: 'top',
+          title: {
+            display: true,
+            text: 'Compression Ratio',
+            color: '#f97316',
+            font: { size: 16, weight: 'bold' }
+          },
+          grid: { display: false },
+          ticks: { 
+            color: '#f97316',
+            font: { size: 13 },
+            padding: 8
+          }
+        },
+        y: {
+          type: 'linear',
+          position: 'left',
+          title: {
+            display: true,
+            text: 'Efficiency (%)',
+            font: { size: 16, weight: 'bold' }
+          },
+          grid: { 
+            color: 'rgba(0, 0, 0, 0.05)',
+            lineWidth: 1
+          },
+          ticks: {
+            font: { size: 13 },
+            padding: 8
+          }
+        }
+      }
+    }
   });
 }
 
 // ==============================
-// Update Charts
+// Update Charts - Now preserves all previous points
 // ==============================
 function updateCharts(results, brakeLoad) {
   const cr = parseFloat(document.getElementById('compressionRatio').value) || 16;
 
-  // Load-based charts
-  effEnergyChart.data.labels.push(brakeLoad);
-  effEnergyChart.data.datasets[0].data.push(results.etaE);
-  effEnergyChart.update();
+  // Add new data points without clearing old ones
+  combinedChart.data.datasets[0].data.push({ x: brakeLoad, y: results.etaE });
+  combinedChart.data.datasets[1].data.push({ x: brakeLoad, y: results.etaEx });
+  combinedChart.data.datasets[2].data.push({ x: cr, y: results.etaE });
+  combinedChart.data.datasets[3].data.push({ x: cr, y: results.etaEx });
 
-  effExergyChart.data.labels.push(brakeLoad);
-  effExergyChart.data.datasets[0].data.push(results.etaEx);
-  effExergyChart.update();
+  // Sort data points by x value for proper line drawing
+  combinedChart.data.datasets.forEach(dataset => {
+    dataset.data.sort((a, b) => a.x - b.x);
+  });
 
-  // Compression Ratio charts
-  crEnergyChart.data.labels.push(cr);
-  crEnergyChart.data.datasets[0].data.push(results.etaE);
-  crEnergyChart.update();
+  combinedChart.update();
+}
 
-  crExergyChart.data.labels.push(cr);
-  crExergyChart.data.datasets[0].data.push(results.etaEx);
-  crExergyChart.update();
+// ==============================
+// Clear Chart Data
+// ==============================
+function clearChartData() {
+  if (combinedChart) {
+    combinedChart.data.datasets.forEach(dataset => {
+      dataset.data = [];
+    });
+    combinedChart.update();
+  }
 }
 
 // ==============================
@@ -289,18 +426,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const numericInputs = document.querySelectorAll('input[type="number"]');
   numericInputs.forEach(input=>{
     input.addEventListener('input',function(){ this.value=this.value.replace(/[^0-9.-]/g,''); });
-   
   });
 
   document.querySelector('.calculate-btn').addEventListener('click', calculateAll);
-  document.querySelector('.reset-btn').addEventListener('click', resetInputs);
-  document.querySelector('.export-btn').addEventListener('click', exportResults);
-  document.querySelector('.print-btn').addEventListener('click', printResults);
-
-  const tabs = document.querySelectorAll('.tab');
-  tabs.forEach(tab=>{
-    tab.addEventListener('click', (event)=>{
-      showTab(tab.dataset.tab);
-    });
-  });
 });
