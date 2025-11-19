@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Energy, Exergy & Sustainability Calculator</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -21,6 +21,7 @@
     <div class="tabs">
       <button class="tab active" onclick="showTab('calculator')">Calculator</button>
       <button class="tab" onclick="showTab('equations')">Equations Reference</button>
+      <button class="tab" onclick="showTab('pcs')">Combustion Simulation</button>
     </div>
 
     <!-- CALCULATOR TAB -->
@@ -43,7 +44,6 @@
           <div class="input-group"><label for="waterTempOut">Water Outlet Temperature (°C):</label><input type="number" id="waterTempOut" step="0.1" value="65"></div>
           <div class="input-group"><label for="exhaustTemp">Exhaust Gas Temperature (°C):</label><input type="number" id="exhaustTemp" step="0.1" value="450"></div>
           <div class="input-group"><label for="ambientTemp">Ambient Temperature (°C):</label><input type="number" id="ambientTemp" step="0.1" value="25"></div>
-          <!-- Compression Ratio Input -->
           <div class="input-group">
             <label for="compressionRatio">Compression Ratio:</label>
             <input type="number" id="compressionRatio" step="0.1" value="16">
@@ -57,12 +57,10 @@
             </select>
           </div>
           
-
           <!-- CUSTOM FUEL -->
           <div class="input-group" id="customFuelGroup" style="display: none;">
             <h3>Custom Fuel Properties</h3>
 
-            <!-- Ratios -->
             <label for="hcRatio">H/C Ratio:</label>
             <input type="number" id="hcRatio" step="0.01" value="1.8">
 
@@ -74,7 +72,6 @@
 
             <hr>
 
-            <!-- Additional Fuel Properties -->
             <label for="fuelDensity">Density (kg/m³):</label>
             <input type="number" id="fuelDensity" step="0.1" value="830">
 
@@ -91,7 +88,6 @@
             <input type="number" id="flashPoint" step="0.1" value="55">
           </div>
 
-
           <button class="calculate-btn" onclick="calculateAll()">Calculate</button>
           <button class="clear-btn" onclick="clearChartData()">Clear Chart Data</button>
         </div>
@@ -100,8 +96,6 @@
         <div class="results-section">
           <h2 class="section-title">Results</h2>
 
-          <!-- COMBINED GRAPH -->
-          <!-- COMBINED GRAPH -->
           <h3>Combined Performance Analysis</h3>
           <div class="chart-container">
             <canvas id="combinedChart"></canvas>
@@ -199,8 +193,69 @@
         </ul>
       </div>
     </div>
+
+    <!-- ==================== PCS TAB - FIXED LAYOUT ==================== -->
+    <div id="pcs-tab" class="tab-content">
+      <div class="pcs-container">
+        <!-- Input Section -->
+        <div class="input-section">
+          <h2 class="section-title">Progressive Combustion Simulation (PCS)</h2>
+          <p class="small">0-D Wiebe heat-release progressive-combustion model. Outputs per-cycle P–θ and heat release.</p>
+
+          <div class="input-grid pcs-inputs">
+            <div class="input-group"><label for="pcs_bore">Bore (m)</label><input id="pcs_bore" type="number" step="0.001" value="0.08"></div>
+            <div class="input-group"><label for="pcs_stroke">Stroke (m)</label><input id="pcs_stroke" type="number" step="0.001" value="0.09"></div>
+            <div class="input-group"><label for="pcs_conrod">Conrod length (m)</label><input id="pcs_conrod" type="number" step="0.001" value="0.15"></div>
+            <div class="input-group"><label for="pcs_cr">Compression ratio</label><input id="pcs_cr" type="number" step="0.1" value="17"></div>
+
+            <div class="input-group"><label for="pcs_gamma">Gamma (γ)</label><input id="pcs_gamma" type="number" step="0.01" value="1.35"></div>
+            <div class="input-group"><label for="pcs_soc">Start of combustion SOC (deg)</label><input id="pcs_soc" type="number" step="1" value="-5"></div>
+            <div class="input-group"><label for="pcs_dur">Combustion duration (deg)</label><input id="pcs_dur" type="number" step="1" value="40"></div>
+            <div class="input-group"><label for="pcs_a">Wiebe a</label><input id="pcs_a" type="number" step="0.1" value="5"></div>
+
+            <div class="input-group"><label for="pcs_m">Wiebe m</label><input id="pcs_m" type="number" step="0.1" value="2"></div>
+            <div class="input-group"><label for="pcs_fuel">Fuel mass per cycle (g)</label><input id="pcs_fuel" type="number" step="0.001" value="0.015"></div>
+            <div class="input-group"><label for="pcs_lhv">Fuel LHV (kJ/kg)</label><input id="pcs_lhv" type="number" step="10" value="43000"></div>
+            <div class="input-group"><label for="pcs_initp">Initial pressure (Pa)</label><input id="pcs_initp" type="number" step="100" value="101325"></div>
+          </div>
+
+          <button id="pcs_run" class="calculate-btn">Run Simulation</button>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section pcs-results">
+          <h3 class="section-title">Simulation Output</h3>
+          
+          <!-- Numeric Results ABOVE Charts -->
+          <div class="pcs-numeric-results">
+            <div class="result-item">
+              <span class="result-label">Indicated Work (kJ):</span>
+              <span class="result-value" id="pcs_W">--</span>
+            </div>
+            <div class="result-item">
+              <span class="result-label">Approx. Thermal Efficiency (%):</span>
+              <span class="result-value" id="pcs_eta">--</span>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="pcs-charts">
+            <div class="pcs-chart-wrapper">
+              <h4>Pressure vs Crank Angle (P–θ)</h4>
+              <canvas id="pcs_chartP"></canvas>
+            </div>
+
+            <div class="pcs-chart-wrapper">
+              <h4>Heat Release Rate vs Crank Angle (dQ/dθ)</h4>
+              <canvas id="pcs_chartQ"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ==================== PCS TAB END ==================== -->
+
   </div>
-  
 
   <script src="script.js"></script>
 </body>

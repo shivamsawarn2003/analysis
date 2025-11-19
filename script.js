@@ -12,9 +12,6 @@ let combinedChart;
 // ==============================
 // Chart.js Setup
 // ==============================
-// ==============================
-// Chart.js Setup
-// ==============================
 function initCharts() {
   const ctx = document.getElementById('combinedChart').getContext('2d');
 
@@ -178,7 +175,7 @@ function initCharts() {
 }
 
 // ==============================
-// Update Charts - Now preserves all previous points
+// Update Charts
 // ==============================
 function updateCharts(results, brakeLoad) {
   const cr = parseFloat(document.getElementById('compressionRatio').value) || 16;
@@ -329,16 +326,16 @@ function calculateAll() {
   const T5 = parseFloat(document.getElementById('exhaustTemp').value) || 0;
   const Ta = parseFloat(document.getElementById('ambientTemp').value) || 0;
 
-  const brakeLoad = parseFloat(document.getElementById('brakeLoad').value) || 0; // kg
-  const armLength = parseFloat(document.getElementById('armLength').value) || 0.5; // m
-  const W = brakeLoad * 9.81; // N
-  const T = W * armLength;    // Nm
+  const brakeLoad = parseFloat(document.getElementById('brakeLoad').value) || 0;
+  const armLength = parseFloat(document.getElementById('armLength').value) || 0.5;
+  const W = brakeLoad * 9.81;
+  const T = W * armLength;
 
   const T1K = T1+273.15, T2K = T2+273.15, T5K = T5+273.15, TaK = Ta+273.15;
 
-  const Ein = mf * lhv * 1000; // kW
-  const Ebp = (2 * Math.PI * N * T) / 60; // W
-  const EbpKW = Ebp / 1000; // kW
+  const Ein = mf * lhv * 1000;
+  const Ebp = (2 * Math.PI * N * T) / 60;
+  const EbpKW = Ebp / 1000;
 
   const Ecw = mw * CP_WATER * (T2 - T1);
   const Eeg = (ma + mf) * CP_EXHAUST * (T5 - Ta);
@@ -417,16 +414,211 @@ function exportResults() {
 function printResults(){ window.print(); }
 
 // ==============================
+// PCS FUNCTIONS
+// ==============================
+const PCS = {
+  deg2rad: d => d * Math.PI / 180,
+  
+  cylinderVolume(thetaDeg, bore, stroke, conrod, Vclear) {
+    const r = stroke / 2;
+    const theta = this.deg2rad(thetaDeg);
+    const term = r * Math.sin(theta);
+    const under = Math.max(1e-12, conrod * conrod - term * term);
+    const x = r * (1 - Math.cos(theta)) + conrod - Math.sqrt(under);
+    return Vclear + (Math.PI / 4) * bore * bore * x;
+  },
+  
+  wiebe(theta, soc, dur, a, m) {
+    if (theta < soc) return 0;
+    let x = (theta - soc) / dur;
+    if (x >= 1) return 1;
+    return 1 - Math.exp(-a * Math.pow(x, m + 1));
+  }
+};
+
+let pcsChartP = null;
+let pcsChartQ = null;
+
+function initPCSCharts() {
+  const ctxP = document.getElementById('pcs_chartP').getContext('2d');
+  const ctxQ = document.getElementById('pcs_chartQ').getContext('2d');
+
+  // Pressure chart
+  pcsChartP = new Chart(ctxP, {
+    type: 'line',
+    data: { 
+      labels: [], 
+      datasets: [{ 
+        label: 'Cylinder Pressure (bar)', 
+        data: [], 
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderWidth: 2, 
+        tension: 0.15, 
+        pointRadius: 0,
+        fill: true
+      }] 
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { 
+        legend: { display: true, position: 'top' },
+        title: {
+          display: false
+        }
+      },
+      scales: {
+        x: { 
+          title: { display: true, text: 'Crank Angle (deg)', font: { size: 13, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.05)' }
+        },
+        y: { 
+          title: { display: true, text: 'Pressure (bar)', font: { size: 13, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.05)' }
+        }
+      }
+    }
+  });
+
+  // Heat release chart
+  pcsChartQ = new Chart(ctxQ, {
+    type: 'line',
+    data: { 
+      labels: [], 
+      datasets: [{ 
+        label: 'Heat Release Rate (kJ/deg)', 
+        data: [], 
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderWidth: 2, 
+        tension: 0.15, 
+        pointRadius: 0,
+        fill: true
+      }] 
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { 
+        legend: { display: true, position: 'top' },
+        title: {
+          display: false
+        }
+      },
+      scales: {
+        x: { 
+          title: { display: true, text: 'Crank Angle (deg)', font: { size: 13, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.05)' }
+        },
+        y: { 
+          title: { display: true, text: 'Heat Release Rate (kJ/deg)', font: { size: 13, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.05)' }
+        }
+      }
+    }
+  });
+}
+
+function runPCSSimulation() {
+  // Read inputs
+  const bore = parseFloat(document.getElementById('pcs_bore').value) || 0.08;
+  const stroke = parseFloat(document.getElementById('pcs_stroke').value) || 0.09;
+  const conrod = parseFloat(document.getElementById('pcs_conrod').value) || 0.15;
+  const CR = parseFloat(document.getElementById('pcs_cr').value) || 17;
+  const gamma = parseFloat(document.getElementById('pcs_gamma').value) || 1.35;
+  const soc = parseFloat(document.getElementById('pcs_soc').value) || -5;
+  const dur = parseFloat(document.getElementById('pcs_dur').value) || 40;
+  const a = parseFloat(document.getElementById('pcs_a').value) || 5;
+  const m = parseFloat(document.getElementById('pcs_m').value) || 2;
+  const fuel_g = parseFloat(document.getElementById('pcs_fuel').value) || 0.015;
+  const LHV = parseFloat(document.getElementById('pcs_lhv').value) || 43000;
+  const p0 = parseFloat(document.getElementById('pcs_initp').value) || 101325;
+
+  // Derived geometry
+  const V_swept = Math.PI/4 * bore*bore * stroke;
+  const V_clear = V_swept / (CR - 1);
+
+  // Theta grid
+  const thetaStart = -180, thetaEnd = 540, dtheta = 1;
+  const theta = [];
+  const V = [];
+  const xb = [];
+  
+  for(let t = thetaStart; t <= thetaEnd; t += dtheta) {
+    theta.push(t);
+    V.push(PCS.cylinderVolume(t, bore, stroke, conrod, V_clear));
+    xb.push(PCS.wiebe(t, soc, dur, a, m));
+  }
+
+  const mass_kg = fuel_g / 1000;
+  const Q_in = mass_kg * LHV * 1000; // J
+
+  // Prepare arrays
+  const P = new Array(theta.length).fill(0);
+  const Qdot = new Array(theta.length).fill(0);
+  P[0] = p0;
+
+  for (let i=0; i<theta.length-1; i++) {
+    const dxb = xb[i+1] - xb[i];
+    const dQ = dxb * Q_in;
+    Qdot[i] = dQ;
+
+    const dV = V[i+1] - V[i];
+    const dp = ((gamma - 1) / V[i]) * dQ - (gamma * P[i] / V[i]) * dV;
+    P[i+1] = Math.max(P[i] + dp, 20000);
+  }
+
+  // Indicated work
+  let W_J = 0;
+  for (let i=0; i<theta.length-1; i++) {
+    W_J += 0.5*(P[i] + P[i+1]) * (V[i+1] - V[i]);
+  }
+  const W_kJ = W_J / 1000;
+
+  // Thermal efficiency
+  const eta_th = (Q_in > 0) ? (W_J / Q_in) : 0;
+
+  // Update charts
+  if (pcsChartP && pcsChartQ) {
+    pcsChartP.data.labels = theta.slice();
+    pcsChartP.data.datasets[0].data = P.map(p => (p/1e5));
+    pcsChartP.update();
+
+    pcsChartQ.data.labels = theta.slice();
+    pcsChartQ.data.datasets[0].data = Qdot.map(q => (q/1000));
+    pcsChartQ.update();
+  }
+
+  // Update numeric outputs
+  document.getElementById('pcs_W').textContent = W_kJ.toFixed(4);
+  document.getElementById('pcs_eta').textContent = (eta_th*100).toFixed(3);
+}
+
+// ==============================
 // Event Listeners
 // ==============================
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded', () => {
   initCharts();
   document.getElementById('fuelType').addEventListener('change', toggleCustomFuelInputs);
 
   const numericInputs = document.querySelectorAll('input[type="number"]');
-  numericInputs.forEach(input=>{
-    input.addEventListener('input',function(){ this.value=this.value.replace(/[^0-9.-]/g,''); });
+  numericInputs.forEach(input => {
+    input.addEventListener('input', function() { 
+      this.value = this.value.replace(/[^0-9.-]/g,''); 
+    });
   });
 
   document.querySelector('.calculate-btn').addEventListener('click', calculateAll);
+
+  // Initialize PCS charts if elements exist
+  if (document.getElementById('pcs_chartP') && document.getElementById('pcs_chartQ')) {
+    initPCSCharts();
+  }
+
+  // PCS run button
+  const pcsRunBtn = document.getElementById('pcs_run');
+  if (pcsRunBtn) {
+    pcsRunBtn.addEventListener('click', runPCSSimulation);
+  }
 });

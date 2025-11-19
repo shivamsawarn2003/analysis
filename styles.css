@@ -77,59 +77,6 @@ body {
   gap: 25px;
 }
 
-
-
-/* ===== Charts ===== */
-canvas {
-  margin: 15px 0;
-  max-width: 100%;
-  min-height: 600px !important;
-  height: 600px !important;
-}
-
-#combinedChart {
-  min-height: 650px !important;
-  height: 650px !important;
-}
-
-/* Results section to accommodate larger chart */
-.results-section {
-  min-width: 700px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 1400px) {
-  .calculator-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .results-section {
-    min-width: 100%;
-  }
-  
-  canvas {
-    min-height: 500px !important;
-    height: 500px !important;
-  }
-  
-  #combinedChart {
-    min-height: 550px !important;
-    height: 550px !important;
-  }
-}
-
-@media (max-width: 768px) {
-  canvas {
-    min-height: 400px !important;
-    height: 400px !important;
-  }
-  
-  #combinedChart {
-    min-height: 450px !important;
-    height: 450px !important;
-  }
-}
-
 /* ===== Card Style (Inputs, Results, Equations) ===== */
 .input-section,
 .results-section,
@@ -177,6 +124,7 @@ canvas {
   border-radius: 8px;
   font-size: 0.9rem;
   transition: border 0.3s;
+  box-sizing: border-box;
 }
 
 .input-group input:focus,
@@ -210,6 +158,27 @@ canvas {
   cursor: not-allowed;
 }
 
+/* ===== Clear Button ===== */
+.clear-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.clear-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
 /* ===== Results ===== */
 .result-item {
   display: flex;
@@ -232,6 +201,32 @@ canvas {
 .updated {
   background: #ede9fe;
   transition: background 0.5s ease-out;
+}
+
+/* ===== Charts ===== */
+canvas {
+  margin: 15px 0;
+  max-width: 100%;
+  min-height: 600px !important;
+  height: 600px !important;
+}
+
+#combinedChart {
+  min-height: 650px !important;
+  height: 650px !important;
+}
+
+/* Chart container */
+.chart-container {
+  position: relative;
+  height: 650px;
+  width: 100%;
+  margin: 20px 0;
+}
+
+/* Results section to accommodate larger chart */
+.results-section {
+  min-width: 700px;
 }
 
 /* ===== Equations Section ===== */
@@ -267,47 +262,146 @@ canvas {
   font-size: 0.9rem;
 }
 
-/* ===== Charts ===== */
-canvas {
-  margin: 50px 0;
-  max-width: 100%;
+/* ==================== PCS TAB - FIXED LAYOUT ==================== */
+
+/* PCS Container - Full width layout */
+.pcs-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 25px;
 }
-/* ===== Clear Button ===== */
-.clear-btn {
-  display: block;
+
+/* PCS Input Grid */
+.input-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.pcs-inputs .input-group {
+  margin-bottom: 10px;
+}
+
+.small { 
+  font-size: 0.9rem; 
+  color: #6b7280; 
+  margin-bottom: 12px;
+}
+
+/* PCS Results Section */
+.pcs-results {
   width: 100%;
-  padding: 12px;
-  margin-top: 10px;
-  background: linear-gradient(90deg, #ef4444, #dc2626);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+}
+
+/* Numeric Results - Display ABOVE charts with clear spacing */
+.pcs-numeric-results {
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  border: 2px solid #e2e8f0;
+}
+
+.pcs-numeric-results .result-item {
+  font-size: 1.1rem;
+  padding: 10px 0;
+}
+
+.pcs-numeric-results .result-label {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.pcs-numeric-results .result-value {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+/* PCS Charts Container - Prevent overlap */
+.pcs-charts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  margin-top: 30px;
+}
+
+.pcs-chart-wrapper {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  min-height: 400px;
+}
+
+.pcs-chart-wrapper h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #1e3a8a;
+  font-size: 1.1rem;
   font-weight: bold;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.3s ease;
+  text-align: center;
 }
 
-.clear-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-}
-/* Chart container */
-.chart-container {
-  position: relative;
-  height: 650px;
-  width: 100%;
-  margin: 20px 0;
+/* PCS Chart Canvas - Fixed height to prevent overlap */
+#pcs_chartP, #pcs_chartQ {
+  min-height: 350px !important;
+  height: 350px !important;
+  max-height: 350px !important;
+  width: 100% !important;
 }
 
+/* ===== Responsive adjustments ===== */
 @media (max-width: 1400px) {
+  .calculator-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .results-section {
+    min-width: 100%;
+  }
+  
+  canvas {
+    min-height: 500px !important;
+    height: 500px !important;
+  }
+  
+  #combinedChart {
+    min-height: 550px !important;
+    height: 550px !important;
+  }
+
   .chart-container {
     height: 550px;
   }
 }
 
 @media (max-width: 768px) {
+  canvas {
+    min-height: 400px !important;
+    height: 400px !important;
+  }
+  
+  #combinedChart {
+    min-height: 450px !important;
+    height: 450px !important;
+  }
+
   .chart-container {
     height: 450px;
+  }
+
+  #pcs_chartP, #pcs_chartQ {
+    min-height: 300px !important;
+    height: 300px !important;
+    max-height: 300px !important;
+  }
+
+  .pcs-chart-wrapper {
+    min-height: 350px;
+  }
+
+  .input-grid {
+    grid-template-columns: 1fr;
   }
 }
