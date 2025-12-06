@@ -207,26 +207,32 @@ body {
 canvas {
   margin: 15px 0;
   max-width: 100%;
-  min-height: 600px !important;
-  height: 600px !important;
 }
 
-#combinedChart {
-  min-height: 650px !important;
-  height: 650px !important;
+.chart-container-small canvas {
+  min-height: 400px !important;
+  height: 400px !important;
 }
 
-/* Chart container */
-.chart-container {
+/* Chart container - Smaller for individual charts */
+.chart-container-small {
   position: relative;
-  height: 650px;
+  height: 400px;
   width: 100%;
-  margin: 20px 0;
+  margin: 20px 0 40px 0;
 }
 
-/* Results section to accommodate larger chart */
+/* Results section to accommodate charts */
 .results-section {
   min-width: 700px;
+}
+
+.results-section h3 {
+  margin-top: 25px;
+  margin-bottom: 10px;
+  color: #1e3a8a;
+  font-size: 1.1rem;
+  font-weight: bold;
 }
 
 /* ===== Equations Section ===== */
@@ -361,34 +367,24 @@ canvas {
     min-width: 100%;
   }
   
-  canvas {
-    min-height: 500px !important;
-    height: 500px !important;
-  }
-  
-  #combinedChart {
-    min-height: 550px !important;
-    height: 550px !important;
+  .chart-container-small {
+    height: 350px;
   }
 
-  .chart-container {
-    height: 550px;
+  .chart-container-small canvas {
+    min-height: 350px !important;
+    height: 350px !important;
   }
 }
 
 @media (max-width: 768px) {
-  canvas {
-    min-height: 400px !important;
-    height: 400px !important;
-  }
-  
-  #combinedChart {
-    min-height: 450px !important;
-    height: 450px !important;
+  .chart-container-small {
+    height: 300px;
   }
 
-  .chart-container {
-    height: 450px;
+  .chart-container-small canvas {
+    min-height: 300px !important;
+    height: 300px !important;
   }
 
   #pcs_chartP, #pcs_chartQ {

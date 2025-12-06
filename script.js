@@ -7,167 +7,175 @@ const R_EXHAUST = 0.287; // kJ/kg·K
 const AMBIENT_PRESSURE = 1.01325; // bar
 const EXHAUST_PRESSURE = 1.05; // bar
 
-let combinedChart;
+let energyLoadChart, exergyLoadChart, energyCRChart, exergyCRChart;
+
+// Fuel colors for comparison
+const fuelColors = {
+  'diesel': { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.6)' },
+  'biodiesel20': { border: '#10b981', bg: 'rgba(16, 185, 129, 0.6)' },
+  'biodiesel100': { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.6)' },
+  'custom': { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.6)' }
+};
+
+const fuelNames = {
+  'diesel': 'Diesel (B0)',
+  'biodiesel20': 'Biodiesel B20',
+  'biodiesel100': 'Biodiesel B100',
+  'custom': 'Custom Fuel'
+};
 
 // ==============================
-// Chart.js Setup
+// Chart.js Setup - 4 Separate Charts
 // ==============================
 function initCharts() {
-  const ctx = document.getElementById('combinedChart').getContext('2d');
+  const ctx1 = document.getElementById('energyLoadChart').getContext('2d');
+  const ctx2 = document.getElementById('exergyLoadChart').getContext('2d');
+  const ctx3 = document.getElementById('energyCRChart').getContext('2d');
+  const ctx4 = document.getElementById('exergyCRChart').getContext('2d');
 
-  combinedChart = new Chart(ctx, {
-    type: 'scatter',
-    data: {
-      datasets: [
-        {
-          label: 'Energy Efficiency vs Load',
-          data: [],
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59, 130, 246, 0.6)',
-          borderWidth: 3,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          showLine: true,
-          yAxisID: 'y',
-          xAxisID: 'x-load'
-        },
-        {
-          label: 'Exergy Efficiency vs Load',
-          data: [],
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16, 185, 129, 0.6)',
-          borderWidth: 3,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          showLine: true,
-          yAxisID: 'y',
-          xAxisID: 'x-load'
-        },
-        {
-          label: 'Energy Efficiency vs CR',
-          data: [],
-          borderColor: '#f97316',
-          backgroundColor: 'rgba(249, 115, 22, 0.6)',
-          borderWidth: 3,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          showLine: true,
-          borderDash: [5, 5],
-          yAxisID: 'y',
-          xAxisID: 'x-cr'
-        },
-        {
-          label: 'Exergy Efficiency vs CR',
-          data: [],
-          borderColor: '#8b5cf6',
-          backgroundColor: 'rgba(139, 92, 246, 0.6)',
-          borderWidth: 3,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          showLine: true,
-          borderDash: [5, 5],
-          yAxisID: 'y',
-          xAxisID: 'x-cr'
-        }
-      ]
+  // Common chart options
+  const commonOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'nearest',
+      intersect: false,
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'nearest',
-        intersect: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        labels: { 
+          padding: 15, 
+          font: { size: 12 },
+          boxWidth: 30,
+          boxHeight: 12
+        }
       },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleFont: { size: 13 },
+        bodyFont: { size: 12 },
+        padding: 10
+      }
+    }
+  };
+
+  // Chart 1: Energy Efficiency vs Load
+  energyLoadChart = new Chart(ctx1, {
+    type: 'line',
+    data: { datasets: [] },
+    options: {
+      ...commonOptions,
       plugins: {
+        ...commonOptions.plugins,
         title: {
           display: true,
-          text: 'Efficiency Analysis: Load & Compression Ratio Effects',
-          font: { size: 18, weight: 'bold' },
-          padding: { top: 10, bottom: 20 }
-        },
-        legend: {
-          display: true,
-          position: 'top',
-          labels: { 
-            padding: 20, 
-            font: { size: 13 },
-            boxWidth: 40,
-            boxHeight: 15
-          }
-        },
-        tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          titleFont: { size: 14 },
-          bodyFont: { size: 13 },
-          padding: 12,
-          callbacks: {
-            title: function(context) {
-              const dataset = context[0].dataset;
-              const value = context[0].parsed.x;
-              if (dataset.xAxisID === 'x-load') {
-                return `Load: ${value} kg`;
-              } else {
-                return `CR: ${value}`;
-              }
-            },
-            label: function(context) {
-              return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`;
-            }
-          }
+          text: 'Energy Efficiency vs Brake Load',
+          font: { size: 16, weight: 'bold' },
+          padding: { top: 10, bottom: 15 }
         }
       },
       scales: {
-        'x-load': {
+        x: {
           type: 'linear',
-          position: 'bottom',
-          title: {
-            display: true,
-            text: 'Load (kg)',
-            color: '#3b82f6',
-            font: { size: 16, weight: 'bold' }
-          },
-          grid: { 
-            color: 'rgba(59, 130, 246, 0.1)',
-            lineWidth: 1
-          },
-          ticks: { 
-            color: '#3b82f6',
-            font: { size: 13 },
-            padding: 8
-          }
-        },
-        'x-cr': {
-          type: 'linear',
-          position: 'top',
-          title: {
-            display: true,
-            text: 'Compression Ratio',
-            color: '#f97316',
-            font: { size: 16, weight: 'bold' }
-          },
-          grid: { display: false },
-          ticks: { 
-            color: '#f97316',
-            font: { size: 13 },
-            padding: 8
-          }
+          title: { display: true, text: 'Brake Load (kg)', font: { size: 14, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.1)' }
         },
         y: {
           type: 'linear',
-          position: 'left',
-          title: {
-            display: true,
-            text: 'Efficiency (%)',
-            font: { size: 16, weight: 'bold' }
-          },
-          grid: { 
-            color: 'rgba(0, 0, 0, 0.05)',
-            lineWidth: 1
-          },
-          ticks: {
-            font: { size: 13 },
-            padding: 8
-          }
+          title: { display: true, text: 'Energy Efficiency (%)', font: { size: 14, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.1)' }
+        }
+      }
+    }
+  });
+
+  // Chart 2: Exergy Efficiency vs Load
+  exergyLoadChart = new Chart(ctx2, {
+    type: 'line',
+    data: { datasets: [] },
+    options: {
+      ...commonOptions,
+      plugins: {
+        ...commonOptions.plugins,
+        title: {
+          display: true,
+          text: 'Exergy Efficiency vs Brake Load',
+          font: { size: 16, weight: 'bold' },
+          padding: { top: 10, bottom: 15 }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Brake Load (kg)', font: { size: 14, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.1)' }
+        },
+        y: {
+          type: 'linear',
+          title: { display: true, text: 'Exergy Efficiency (%)', font: { size: 14, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.1)' }
+        }
+      }
+    }
+  });
+
+  // Chart 3: Energy Efficiency vs CR
+  energyCRChart = new Chart(ctx3, {
+    type: 'line',
+    data: { datasets: [] },
+    options: {
+      ...commonOptions,
+      plugins: {
+        ...commonOptions.plugins,
+        title: {
+          display: true,
+          text: 'Energy Efficiency vs Compression Ratio',
+          font: { size: 16, weight: 'bold' },
+          padding: { top: 10, bottom: 15 }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Compression Ratio', font: { size: 14, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.1)' }
+        },
+        y: {
+          type: 'linear',
+          title: { display: true, text: 'Energy Efficiency (%)', font: { size: 14, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.1)' }
+        }
+      }
+    }
+  });
+
+  // Chart 4: Exergy Efficiency vs CR
+  exergyCRChart = new Chart(ctx4, {
+    type: 'line',
+    data: { datasets: [] },
+    options: {
+      ...commonOptions,
+      plugins: {
+        ...commonOptions.plugins,
+        title: {
+          display: true,
+          text: 'Exergy Efficiency vs Compression Ratio',
+          font: { size: 16, weight: 'bold' },
+          padding: { top: 10, bottom: 15 }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Compression Ratio', font: { size: 14, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.1)' }
+        },
+        y: {
+          type: 'linear',
+          title: { display: true, text: 'Exergy Efficiency (%)', font: { size: 14, weight: 'bold' } },
+          grid: { color: 'rgba(0, 0, 0, 0.1)' }
         }
       }
     }
@@ -175,34 +183,82 @@ function initCharts() {
 }
 
 // ==============================
-// Update Charts
+// Update Charts with Fuel Comparison
 // ==============================
-function updateCharts(results, brakeLoad) {
+function updateCharts(results, brakeLoad, fuelType) {
   const cr = parseFloat(document.getElementById('compressionRatio').value) || 16;
+  
+  const color = fuelColors[fuelType] || fuelColors['custom'];
+  const fuelName = fuelNames[fuelType] || 'Custom Fuel';
 
-  // Add new data points without clearing old ones
-  combinedChart.data.datasets[0].data.push({ x: brakeLoad, y: results.etaE });
-  combinedChart.data.datasets[1].data.push({ x: brakeLoad, y: results.etaEx });
-  combinedChart.data.datasets[2].data.push({ x: cr, y: results.etaE });
-  combinedChart.data.datasets[3].data.push({ x: cr, y: results.etaEx });
+  // Function to find or create dataset for fuel type
+  function getOrCreateDataset(chart, fuelType, fuelName, color) {
+    let dataset = chart.data.datasets.find(ds => ds.fuelType === fuelType);
+    if (!dataset) {
+      dataset = {
+        label: fuelName,
+        fuelType: fuelType,
+        data: [],
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        borderWidth: 3,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: color.border,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        tension: 0.3,
+        fill: false
+      };
+      chart.data.datasets.push(dataset);
+    }
+    return dataset;
+  }
 
-  // Sort data points by x value for proper line drawing
-  combinedChart.data.datasets.forEach(dataset => {
-    dataset.data.sort((a, b) => a.x - b.x);
-  });
+  // Update Chart 1: Energy Efficiency vs Load
+  const ds1 = getOrCreateDataset(energyLoadChart, fuelType, fuelName, color);
+  ds1.data.push({ x: brakeLoad, y: results.etaE });
+  ds1.data.sort((a, b) => a.x - b.x);
+  energyLoadChart.update();
 
-  combinedChart.update();
+  // Update Chart 2: Exergy Efficiency vs Load
+  const ds2 = getOrCreateDataset(exergyLoadChart, fuelType, fuelName, color);
+  ds2.data.push({ x: brakeLoad, y: results.etaEx });
+  ds2.data.sort((a, b) => a.x - b.x);
+  exergyLoadChart.update();
+
+  // Update Chart 3: Energy Efficiency vs CR
+  const ds3 = getOrCreateDataset(energyCRChart, fuelType, fuelName, color);
+  ds3.data.push({ x: cr, y: results.etaE });
+  ds3.data.sort((a, b) => a.x - b.x);
+  energyCRChart.update();
+
+  // Update Chart 4: Exergy Efficiency vs CR
+  const ds4 = getOrCreateDataset(exergyCRChart, fuelType, fuelName, color);
+  ds4.data.push({ x: cr, y: results.etaEx });
+  ds4.data.sort((a, b) => a.x - b.x);
+  exergyCRChart.update();
 }
 
 // ==============================
 // Clear Chart Data
 // ==============================
 function clearChartData() {
-  if (combinedChart) {
-    combinedChart.data.datasets.forEach(dataset => {
-      dataset.data = [];
-    });
-    combinedChart.update();
+  if (energyLoadChart) {
+    energyLoadChart.data.datasets = [];
+    energyLoadChart.update();
+  }
+  if (exergyLoadChart) {
+    exergyLoadChart.data.datasets = [];
+    exergyLoadChart.update();
+  }
+  if (energyCRChart) {
+    energyCRChart.data.datasets = [];
+    energyCRChart.update();
+  }
+  if (exergyCRChart) {
+    exergyCRChart.data.datasets = [];
+    exergyCRChart.update();
   }
 }
 
@@ -234,14 +290,22 @@ function getChemicalExergyFactor() {
   let hcRatio, ocRatio, scRatio;
 
   switch (fuelType) {
-    case 'diesel': hcRatio = 1.8; ocRatio = 0.0; scRatio = 0.0; break;
-    case 'biodiesel20': hcRatio = 1.78; ocRatio = 0.04; scRatio = 0.0; break;
+    case 'diesel': 
+      hcRatio = 1.8; ocRatio = 0.0; scRatio = 0.0; 
+      break;
+    case 'biodiesel20': 
+      hcRatio = 1.78; ocRatio = 0.04; scRatio = 0.0; 
+      break;
+    case 'biodiesel100': 
+      hcRatio = 1.76; ocRatio = 0.11; scRatio = 0.0; 
+      break;
     case 'custom':
       hcRatio = parseFloat(document.getElementById('hcRatio').value) || 0;
       ocRatio = parseFloat(document.getElementById('ocRatio').value) || 0;
       scRatio = parseFloat(document.getElementById('scRatio').value) || 0;
       break;
-    default: hcRatio = 1.8; ocRatio = 0.0; scRatio = 0.0;
+    default: 
+      hcRatio = 1.8; ocRatio = 0.0; scRatio = 0.0;
   }
 
   return 1.0374 + 0.0159 * hcRatio + 0.0567 * ocRatio +
@@ -258,6 +322,9 @@ function animateResultUpdate(elementId) {
 }
 
 function updateResults(results) {
+  const fuelType = document.getElementById('fuelType').value;
+  document.getElementById('currentFuelType').textContent = fuelNames[fuelType] || 'Custom Fuel';
+  
   document.getElementById('torqueResult').textContent = results.Torque.toFixed(2);
   document.getElementById('inputEnergy').textContent = results.Ein.toFixed(3);
   document.getElementById('brakePower').textContent = results.EbpKW.toFixed(3);
@@ -277,7 +344,7 @@ function updateResults(results) {
   document.getElementById('exergyPerformanceCoeff').textContent = results.EPC.toFixed(3);
 
   const ids = [
-    'torqueResult','inputEnergy','brakePower','coolingWaterEnergy','exhaustGasEnergy',
+    'currentFuelType','torqueResult','inputEnergy','brakePower','coolingWaterEnergy','exhaustGasEnergy',
     'unaccountedEnergy','energyEfficiency','inputExergy','shaftExergy',
     'coolingWaterExergy','exhaustGasExergy','exergyDestruction',
     'exergyEfficiency','sustainabilityIndex','exergyPerformanceCoeff'
@@ -354,9 +421,11 @@ function calculateAll() {
 
   const results = { Torque:T, Ein,EbpKW,Ecw,Eeg,Eunaccounted,etaE,ExIn,ExShaft,ExCw,ExEg,ExD,etaEx,SI,EPC };
 
+  const fuelType = document.getElementById('fuelType').value;
+
   setTimeout(()=>{
     updateResults(results);
-    updateCharts(results, brakeLoad);
+    updateCharts(results, brakeLoad, fuelType);
     calculateBtn.classList.remove('loading');
     calculateBtn.textContent = 'Calculate';
   },500);

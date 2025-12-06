@@ -96,12 +96,30 @@
         <div class="results-section">
           <h2 class="section-title">Results</h2>
 
-          <h3>Combined Performance Analysis</h3>
-          <div class="chart-container">
-            <canvas id="combinedChart"></canvas>
+          <!-- FOUR SEPARATE CHARTS FOR COMPARISON -->
+          <h3>Energy Efficiency vs Load</h3>
+          <div class="chart-container-small">
+            <canvas id="energyLoadChart"></canvas>
+          </div>
+
+          <h3>Exergy Efficiency vs Load</h3>
+          <div class="chart-container-small">
+            <canvas id="exergyLoadChart"></canvas>
+          </div>
+
+          <h3>Energy Efficiency vs Compression Ratio</h3>
+          <div class="chart-container-small">
+            <canvas id="energyCRChart"></canvas>
+          </div>
+
+          <h3>Exergy Efficiency vs Compression Ratio</h3>
+          <div class="chart-container-small">
+            <canvas id="exergyCRChart"></canvas>
           </div>
 
           <!-- NUMERIC RESULTS -->
+          <h3 style="margin-top: 30px;">Current Calculation Results</h3>
+          <div class="result-item"><span class="result-label">Fuel Type:</span><span class="result-value" id="currentFuelType">--</span></div>
           <div class="result-item"><span class="result-label">Torque (Nm):</span><span class="result-value" id="torqueResult">--</span></div>
           <div class="result-item"><span class="result-label">Input Energy (kW):</span><span id="inputEnergy">--</span></div>
           <div class="result-item"><span class="result-label">Brake Power (kW):</span><span id="brakePower">--</span></div>
