@@ -527,7 +527,7 @@ function runPCSSimulation() {
   const conrod = parseFloat(document.getElementById('pcs_conrod').value) || 0.15;
   const CR = parseFloat(document.getElementById('pcs_cr').value) || 17;
   const gamma = parseFloat(document.getElementById('pcs_gamma').value) || 1.35;
-  const soc = parseFloat(document.getElementById('pcs_soc').value) || -5;
+  const soc = parseFloat(document.getElementById('pcs_soc').value) || 355;
   const dur = parseFloat(document.getElementById('pcs_dur').value) || 40;
   const a = parseFloat(document.getElementById('pcs_a').value) || 5;
   const m = parseFloat(document.getElementById('pcs_m').value) || 2;
@@ -538,16 +538,20 @@ function runPCSSimulation() {
   // Derived geometry
   const V_swept = Math.PI/4 * bore*bore * stroke;
   const V_clear = V_swept / (CR - 1);
+  const V_max = V_clear + V_swept;
 
-  // Theta grid
-  const thetaStart = -180, thetaEnd = 540, dtheta = 1;
+  // Theta grid - 0° to 720° (complete 4-stroke cycle)
+  // 0-180°: Intake, 180-360°: Compression, 360-540°: Power, 540-720°: Exhaust
+  const thetaStart = 0, thetaEnd = 720, dtheta = 0.5;
   const theta = [];
   const V = [];
   const xb = [];
   
   for(let t = thetaStart; t <= thetaEnd; t += dtheta) {
     theta.push(t);
-    V.push(PCS.cylinderVolume(t, bore, stroke, conrod, V_clear));
+    // Adjust cylinder volume calculation: TDC at 0° and 360°
+    const adjustedAngle = ((t + 180) % 360) - 180;
+    V.push(PCS.cylinderVolume(adjustedAngle, bore, stroke, conrod, V_clear));
     xb.push(PCS.wiebe(t, soc, dur, a, m));
   }
 
@@ -557,32 +561,70 @@ function runPCSSimulation() {
   // Prepare arrays
   const P = new Array(theta.length).fill(0);
   const Qdot = new Array(theta.length).fill(0);
+  
+  // Initial conditions at start
   P[0] = p0;
 
+  // Compression and combustion simulation
   for (let i=0; i<theta.length-1; i++) {
+    const currentAngle = theta[i];
+    
+    // Heat release from Wiebe function
     const dxb = xb[i+1] - xb[i];
     const dQ = dxb * Q_in;
     Qdot[i] = dQ;
 
     const dV = V[i+1] - V[i];
-    const dp = ((gamma - 1) / V[i]) * dQ - (gamma * P[i] / V[i]) * dV;
-    P[i+1] = Math.max(P[i] + dp, 20000);
+    
+    // Different phases of 4-stroke cycle
+    if (currentAngle >= 0 && currentAngle < 180) {
+      // Intake stroke - constant low pressure
+      P[i+1] = p0;
+    } else if (currentAngle >= 180 && currentAngle < 360) {
+      // Compression stroke - isentropic compression
+      const dp = ((gamma - 1) / V[i]) * dQ - (gamma * P[i] / V[i]) * dV;
+      P[i+1] = Math.max(P[i] + dp, p0 * 0.5);
+    } else if (currentAngle >= 360 && currentAngle < 540) {
+      // Power stroke - combustion and expansion
+      const dp = ((gamma - 1) / V[i]) * dQ - (gamma * P[i] / V[i]) * dV;
+      P[i+1] = Math.max(P[i] + dp, p0 * 0.5);
+    } else {
+      // Exhaust stroke - constant low pressure
+      P[i+1] = p0 * 1.05; // Slightly elevated for exhaust
+    }
   }
 
-  // Indicated work
+  // Indicated work (area under P-V curve for power stroke)
   let W_J = 0;
   for (let i=0; i<theta.length-1; i++) {
-    W_J += 0.5*(P[i] + P[i+1]) * (V[i+1] - V[i]);
+    if (theta[i] >= 180 && theta[i] < 540) {
+      W_J += 0.5*(P[i] + P[i+1]) * (V[i+1] - V[i]);
+    }
   }
   const W_kJ = W_J / 1000;
 
   // Thermal efficiency
   const eta_th = (Q_in > 0) ? (W_J / Q_in) : 0;
 
+  // Find peak pressure for display
+  const P_max = Math.max(...P);
+  const P_max_bar = P_max / 1e5;
+  const peakIndex = P.indexOf(P_max);
+  const peakAngle = theta[peakIndex];
+
   // Update charts
   if (pcsChartP && pcsChartQ) {
     pcsChartP.data.labels = theta.slice();
     pcsChartP.data.datasets[0].data = P.map(p => (p/1e5));
+    
+    // Update chart title with peak pressure
+    pcsChartP.options.plugins.title = {
+      display: true,
+      text: `Peak Pressure: ${P_max_bar.toFixed(1)} bar at ${peakAngle.toFixed(0)}° CA`,
+      font: { size: 12, weight: 'normal' },
+      color: '#666'
+    };
+    
     pcsChartP.update();
 
     pcsChartQ.data.labels = theta.slice();
