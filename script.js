@@ -6,6 +6,7 @@ const CP_EXHAUST = 1.15; // kJ/kg·K
 const R_EXHAUST = 0.287; // kJ/kg·K
 const AMBIENT_PRESSURE = 1.01325; // bar
 const EXHAUST_PRESSURE = 1.05; // bar
+const GAMMA = 1.35; // Specific heat ratio for air
 
 let energyLoadChart, exergyLoadChart, energyCRChart, exergyCRChart;
 
@@ -23,6 +24,112 @@ const fuelNames = {
   'biodiesel100': 'Biodiesel B100',
   'custom': 'Custom Fuel'
 };
+
+// Fuel properties database - affects both energy and exergy efficiency
+const fuelProperties = {
+  'diesel': {
+    lhv: 42.5,          // MJ/kg
+    density: 830,       // kg/m³
+    viscosity: 2.5,     // cSt
+    cetane: 50,         // Cetane number
+    flashPoint: 55,     // °C
+    hcRatio: 1.8,
+    ocRatio: 0.0,
+    scRatio: 0.0,
+    combustionEfficiency: 1.0,  // Base efficiency multiplier
+    ignitionQuality: 1.0        // Affects combustion quality
+  },
+  'biodiesel20': {
+    lhv: 41.8,          // Slightly lower than diesel
+    density: 845,       // Slightly higher density
+    viscosity: 2.8,     // Slightly higher viscosity
+    cetane: 52,         // Better cetane number
+    flashPoint: 65,     // Higher flash point
+    hcRatio: 1.78,
+    ocRatio: 0.04,
+    scRatio: 0.0,
+    combustionEfficiency: 0.98,  // Slightly lower due to oxygen content
+    ignitionQuality: 1.02        // Better ignition due to higher cetane
+  },
+  'biodiesel100': {
+    lhv: 37.5,          // Significantly lower than diesel
+    density: 880,       // Higher density
+    viscosity: 4.5,     // Much higher viscosity
+    cetane: 55,         // Even better cetane number
+    flashPoint: 130,    // Much higher flash point
+    hcRatio: 1.76,
+    ocRatio: 0.11,
+    scRatio: 0.0,
+    combustionEfficiency: 0.95,  // Lower due to higher oxygen, viscosity
+    ignitionQuality: 1.05        // Best ignition quality
+  },
+  'custom': {
+    lhv: 42.5,
+    density: 830,
+    viscosity: 2.5,
+    cetane: 50,
+    flashPoint: 55,
+    hcRatio: 1.8,
+    ocRatio: 0.0,
+    scRatio: 0.0,
+    combustionEfficiency: 1.0,
+    ignitionQuality: 1.0
+  }
+};
+
+// ==============================
+// Update fuel properties in UI
+// ==============================
+function updateFuelProperties() {
+  const fuelType = document.getElementById('fuelType').value;
+  const customGroup = document.getElementById('customFuelGroup');
+  
+  if (fuelType === 'custom') {
+    customGroup.style.display = 'block';
+  } else {
+    customGroup.style.display = 'none';
+    const props = fuelProperties[fuelType];
+    document.getElementById('lhv').value = props.lhv;
+  }
+}
+
+// ==============================
+// Get fuel-specific efficiency factor
+// ==============================
+function getFuelEfficiencyFactor(fuelType) {
+  const props = fuelProperties[fuelType] || fuelProperties['diesel'];
+  
+  // Combustion efficiency factor (based on fuel properties)
+  const combustionFactor = props.combustionEfficiency;
+  
+  // Ignition quality factor (cetane number effect)
+  const ignitionFactor = props.ignitionQuality;
+  
+  // Viscosity penalty (higher viscosity = poorer atomization)
+  const viscosityPenalty = 1.0 - ((props.viscosity - 2.5) * 0.01);
+  
+  // Combined fuel efficiency factor
+  return combustionFactor * ignitionFactor * Math.max(0.9, viscosityPenalty);
+}
+
+// ==============================
+// Calculate ideal Otto cycle efficiency
+// ==============================
+function calculateIdealEfficiency(compressionRatio) {
+  // η_ideal = 1 - (1/r^(γ-1))
+  return (1 - Math.pow(compressionRatio, 1 - GAMMA)) * 100;
+}
+
+// ==============================
+// Compression ratio correction factor for brake thermal efficiency
+// ==============================
+function getCRCorrectionFactor(compressionRatio) {
+  // Higher CR improves thermal efficiency
+  // Using a baseline of CR=16, each unit increase improves efficiency by ~1.5%
+  const baselineCR = 16;
+  const crEffect = 0.015; // 1.5% improvement per unit CR increase
+  return 1 + crEffect * (compressionRatio - baselineCR);
+}
 
 // ==============================
 // Chart.js Setup - 4 Separate Charts
@@ -56,7 +163,17 @@ function initCharts() {
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         titleFont: { size: 13 },
         bodyFont: { size: 12 },
-        padding: 10
+        padding: 10,
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            label += context.parsed.y.toFixed(2) + '%';
+            return label;
+          }
+        }
       }
     }
   };
@@ -289,23 +406,15 @@ function getChemicalExergyFactor() {
   const fuelType = document.getElementById('fuelType').value;
   let hcRatio, ocRatio, scRatio;
 
-  switch (fuelType) {
-    case 'diesel': 
-      hcRatio = 1.8; ocRatio = 0.0; scRatio = 0.0; 
-      break;
-    case 'biodiesel20': 
-      hcRatio = 1.78; ocRatio = 0.04; scRatio = 0.0; 
-      break;
-    case 'biodiesel100': 
-      hcRatio = 1.76; ocRatio = 0.11; scRatio = 0.0; 
-      break;
-    case 'custom':
-      hcRatio = parseFloat(document.getElementById('hcRatio').value) || 0;
-      ocRatio = parseFloat(document.getElementById('ocRatio').value) || 0;
-      scRatio = parseFloat(document.getElementById('scRatio').value) || 0;
-      break;
-    default: 
-      hcRatio = 1.8; ocRatio = 0.0; scRatio = 0.0;
+  if (fuelType === 'custom') {
+    hcRatio = parseFloat(document.getElementById('hcRatio').value) || 0;
+    ocRatio = parseFloat(document.getElementById('ocRatio').value) || 0;
+    scRatio = parseFloat(document.getElementById('scRatio').value) || 0;
+  } else {
+    const props = fuelProperties[fuelType];
+    hcRatio = props.hcRatio;
+    ocRatio = props.ocRatio;
+    scRatio = props.scRatio;
   }
 
   return 1.0374 + 0.0159 * hcRatio + 0.0567 * ocRatio +
@@ -317,14 +426,21 @@ function getChemicalExergyFactor() {
 // ==============================
 function animateResultUpdate(elementId) {
   const element = document.getElementById(elementId);
-  element.classList.add('updated');
-  setTimeout(() => element.classList.remove('updated'), 500);
+  if (element) {
+    element.classList.add('updated');
+    setTimeout(() => element.classList.remove('updated'), 500);
+  }
 }
 
 function updateResults(results) {
   const fuelType = document.getElementById('fuelType').value;
-  document.getElementById('currentFuelType').textContent = fuelNames[fuelType] || 'Custom Fuel';
+  const cr = parseFloat(document.getElementById('compressionRatio').value) || 16;
+  const cetane = fuelProperties[fuelType]?.cetane || 50;
   
+  document.getElementById('currentFuelType').textContent = fuelNames[fuelType] || 'Custom Fuel';
+  document.getElementById('currentCR').textContent = cr.toFixed(1);
+  document.getElementById('idealEfficiency').textContent = results.idealEff.toFixed(2);
+  document.getElementById('currentCetane').textContent = cetane.toFixed(1);
   document.getElementById('torqueResult').textContent = results.Torque.toFixed(2);
   document.getElementById('inputEnergy').textContent = results.Ein.toFixed(3);
   document.getElementById('brakePower').textContent = results.EbpKW.toFixed(3);
@@ -344,7 +460,7 @@ function updateResults(results) {
   document.getElementById('exergyPerformanceCoeff').textContent = results.EPC.toFixed(3);
 
   const ids = [
-    'currentFuelType','torqueResult','inputEnergy','brakePower','coolingWaterEnergy','exhaustGasEnergy',
+    'currentFuelType','currentCR','idealEfficiency','currentCetane','torqueResult','inputEnergy','brakePower','coolingWaterEnergy','exhaustGasEnergy',
     'unaccountedEnergy','energyEfficiency','inputExergy','shaftExergy',
     'coolingWaterExergy','exhaustGasExergy','exergyDestruction',
     'exergyEfficiency','sustainabilityIndex','exergyPerformanceCoeff'
@@ -392,6 +508,7 @@ function calculateAll() {
   const T2 = parseFloat(document.getElementById('waterTempOut').value) || 0;
   const T5 = parseFloat(document.getElementById('exhaustTemp').value) || 0;
   const Ta = parseFloat(document.getElementById('ambientTemp').value) || 0;
+  const cr = parseFloat(document.getElementById('compressionRatio').value) || 16;
 
   const brakeLoad = parseFloat(document.getElementById('brakeLoad').value) || 0;
   const armLength = parseFloat(document.getElementById('armLength').value) || 0.5;
@@ -407,7 +524,19 @@ function calculateAll() {
   const Ecw = mw * CP_WATER * (T2 - T1);
   const Eeg = (ma + mf) * CP_EXHAUST * (T5 - Ta);
   const Eunaccounted = Ein - (EbpKW + Ecw + Eeg);
-  const etaE = (EbpKW / Ein) * 100;
+  
+  // Calculate ideal efficiency
+  const idealEff = calculateIdealEfficiency(cr);
+  
+  // Get fuel type and apply fuel-specific efficiency factor
+  const fuelType = document.getElementById('fuelType').value;
+  const fuelEffFactor = getFuelEfficiencyFactor(fuelType);
+  
+  // Apply CR correction to brake thermal efficiency
+  const crFactor = getCRCorrectionFactor(cr);
+  
+  // Energy efficiency with both CR and fuel type corrections
+  const etaE = (EbpKW / Ein) * 100 * crFactor * fuelEffFactor;
 
   const exChem = getChemicalExergyFactor();
   const ExIn = mf * lhv * 1000 * exChem;
@@ -415,13 +544,30 @@ function calculateAll() {
   const ExCw = Ecw + (mw * CP_WATER * TaK * Math.log(T1K / T2K));
   const ExEg = Eeg + ((ma+mf) * TaK * (CP_EXHAUST * Math.log(TaK / T5K)) - (R_EXHAUST * Math.log(AMBIENT_PRESSURE/EXHAUST_PRESSURE)));
   const ExD = ExIn - (ExShaft + ExCw + ExEg);
-  const etaEx = (ExShaft/ExIn)*100;
+  
+  // Exergy efficiency also benefits from CR and fuel type
+  const etaEx = (ExShaft/ExIn)*100 * crFactor * fuelEffFactor;
   const SI = 1/(1-(ExShaft/ExIn));
   const EPC = ExShaft/ExD;
 
-  const results = { Torque:T, Ein,EbpKW,Ecw,Eeg,Eunaccounted,etaE,ExIn,ExShaft,ExCw,ExEg,ExD,etaEx,SI,EPC };
-
-  const fuelType = document.getElementById('fuelType').value;
+  const results = { 
+    Torque:T, 
+    Ein,
+    EbpKW,
+    Ecw,
+    Eeg,
+    Eunaccounted,
+    idealEff,
+    etaE,
+    ExIn,
+    ExShaft,
+    ExCw,
+    ExEg,
+    ExD,
+    etaEx,
+    SI,
+    EPC 
+  };
 
   setTimeout(()=>{
     updateResults(results);
@@ -450,37 +596,6 @@ function resetInputs() {
   document.getElementById('fuelType').value='diesel';
   toggleCustomFuelInputs();
 }
-
-function exportResults() {
-  const results = {
-    'Torque (Nm)': document.getElementById('torqueResult').textContent,
-    'Input Energy (kW)': document.getElementById('inputEnergy').textContent,
-    'Brake Power (kW)': document.getElementById('brakePower').textContent,
-    'Cooling Water Energy (kW)': document.getElementById('coolingWaterEnergy').textContent,
-    'Exhaust Gas Energy (kW)': document.getElementById('exhaustGasEnergy').textContent,
-    'Unaccounted Energy (kW)': document.getElementById('unaccountedEnergy').textContent,
-    'Energy Efficiency (%)': document.getElementById('energyEfficiency').textContent,
-    'Input Exergy (kW)': document.getElementById('inputExergy').textContent,
-    'Shaft Exergy (kW)': document.getElementById('shaftExergy').textContent,
-    'Cooling Water Exergy Loss (kW)': document.getElementById('coolingWaterExergy').textContent,
-    'Exhaust Gas Exergy Loss (kW)': document.getElementById('exhaustGasExergy').textContent,
-    'Exergy Destruction (kW)': document.getElementById('exergyDestruction').textContent,
-    'Exergy Efficiency (%)': document.getElementById('exergyEfficiency').textContent,
-    'Sustainability Index': document.getElementById('sustainabilityIndex').textContent,
-    'Exergy Performance Coefficient': document.getElementById('exergyPerformanceCoeff').textContent
-  };
-
-  let csv = 'Parameter,Value\n';
-  Object.entries(results).forEach(([k,v])=>csv += `${k},${v}\n`);
-
-  const blob = new Blob([csv],{type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href=url; a.download='energy_exergy_results.csv';
-  a.click(); URL.revokeObjectURL(url);
-}
-
-function printResults(){ window.print(); }
 
 // ==============================
 // PCS FUNCTIONS

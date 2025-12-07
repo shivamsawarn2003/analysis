@@ -46,13 +46,14 @@
           <div class="input-group"><label for="ambientTemp">Ambient Temperature (°C):</label><input type="number" id="ambientTemp" step="0.1" value="25"></div>
           <div class="input-group">
             <label for="compressionRatio">Compression Ratio:</label>
-            <input type="number" id="compressionRatio" step="0.1" value="16">
+            <input type="number" id="compressionRatio" step="0.1" value="16" min="8" max="25">
           </div>
           <div class="input-group">
             <label for="fuelType">Fuel Type:</label>
-            <select id="fuelType">
+            <select id="fuelType" onchange="updateFuelProperties()">
               <option value="diesel">Diesel (B0)</option>
               <option value="biodiesel20">Biodiesel B20</option>
+              <option value="biodiesel100">Biodiesel B100</option>
               <option value="custom">Custom</option>
             </select>
           </div>
@@ -120,6 +121,9 @@
           <!-- NUMERIC RESULTS -->
           <h3 style="margin-top: 30px;">Current Calculation Results</h3>
           <div class="result-item"><span class="result-label">Fuel Type:</span><span class="result-value" id="currentFuelType">--</span></div>
+          <div class="result-item"><span class="result-label">Compression Ratio:</span><span class="result-value" id="currentCR">--</span></div>
+          <div class="result-item"><span class="result-label">Ideal Cycle Efficiency (%):</span><span class="result-value" id="idealEfficiency">--</span></div>
+          <div class="result-item"><span class="result-label">Cetane Number:</span><span class="result-value" id="currentCetane">--</span></div>
           <div class="result-item"><span class="result-label">Torque (Nm):</span><span class="result-value" id="torqueResult">--</span></div>
           <div class="result-item"><span class="result-label">Input Energy (kW):</span><span id="inputEnergy">--</span></div>
           <div class="result-item"><span class="result-label">Brake Power (kW):</span><span id="brakePower">--</span></div>
@@ -162,8 +166,11 @@
         <p>Unaccounted Energy:</p>
         <p>$$ E_{unacc} = E_{in} - (E_{BP} + E_{cw} + E_{eg}) $$</p>
 
-        <p>Energy Efficiency:</p>
-        <p>$$ \eta_E = \frac{E_{BP}}{E_{in}} $$</p>
+        <p>Ideal Cycle Efficiency (Otto Cycle):</p>
+        <p>$$ \eta_{ideal} = 1 - \frac{1}{r^{\gamma-1}} $$</p>
+
+        <p>Energy Efficiency (with CR and fuel corrections):</p>
+        <p>$$ \eta_E = \frac{E_{BP}}{E_{in}} \cdot CR_{factor} \cdot Fuel_{factor} $$</p>
 
         <h3>Exergy Analysis</h3>
         <p>Chemical Exergy Factor:</p>
@@ -201,6 +208,8 @@
           <li>$$ LHV $$ : Lower Heating Value of fuel (kJ/kg)</li>
           <li>$$ N $$ : Engine speed (rpm)</li>
           <li>$$ T $$ : Torque (Nm)</li>
+          <li>$$ r $$ : Compression ratio</li>
+          <li>$$ \gamma $$ : Specific heat ratio</li>
           <li>$$ \dot{m}_w $$ : Cooling water mass flow rate (kg/s)</li>
           <li>$$ C_p $$ : Specific heat (kJ/kg·K)</li>
           <li>$$ T_1, T_2 $$ : Cooling water inlet & outlet temperatures (K)</li>
@@ -212,10 +221,9 @@
       </div>
     </div>
 
-    <!-- ==================== PCS TAB - FIXED LAYOUT ==================== -->
+    <!-- PCS TAB -->
     <div id="pcs-tab" class="tab-content">
       <div class="pcs-container">
-        <!-- Input Section -->
         <div class="input-section">
           <h2 class="section-title">Progressive Combustion Simulation (PCS)</h2>
           <p class="small">0-D Wiebe heat-release progressive-combustion model. Outputs per-cycle P–θ and heat release.</p>
@@ -240,11 +248,9 @@
           <button id="pcs_run" class="calculate-btn">Run Simulation</button>
         </div>
 
-        <!-- Results Section -->
         <div class="results-section pcs-results">
           <h3 class="section-title">Simulation Output</h3>
           
-          <!-- Numeric Results ABOVE Charts -->
           <div class="pcs-numeric-results">
             <div class="result-item">
               <span class="result-label">Indicated Work (kJ):</span>
@@ -256,7 +262,6 @@
             </div>
           </div>
 
-          <!-- Charts -->
           <div class="pcs-charts">
             <div class="pcs-chart-wrapper">
               <h4>Pressure vs Crank Angle (P–θ)</h4>
@@ -271,7 +276,6 @@
         </div>
       </div>
     </div>
-    <!-- ==================== PCS TAB END ==================== -->
 
   </div>
 
