@@ -6,7 +6,6 @@
   <title>Energy, Exergy & Sustainability Calculator</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- MathJax for equations -->
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script id="MathJax-script" async
     src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -30,14 +29,11 @@
         <div class="input-section">
           <h2 class="section-title">Input Parameters</h2>
 
-          <!-- INPUTS -->
           <div class="input-group"><label for="fuelMassFlow">Fuel Mass Flow Rate (kg/s):</label><input type="number" id="fuelMassFlow" step="0.0001" value="0.0008"></div>
           <div class="input-group"><label for="lhv">Lower Heating Value (MJ/kg):</label><input type="number" id="lhv" step="0.1" value="42.5"></div>
           <div class="input-group"><label for="engineSpeed">Engine Speed (rpm):</label><input type="number" id="engineSpeed" step="1" value="1500"></div>
-
           <div class="input-group"><label for="brakeLoad">Brake Load (kg):</label><input type="number" id="brakeLoad" step="0.1" value="10"></div>
           <div class="input-group"><label for="armLength">Arm Length (m):</label><input type="number" id="armLength" step="0.01" value="0.5"></div>
-
           <div class="input-group"><label for="airMassFlow">Air Mass Flow Rate (kg/s):</label><input type="number" id="airMassFlow" step="0.001" value="0.02"></div>
           <div class="input-group"><label for="waterMassFlow">Cooling Water Mass Flow Rate (kg/s):</label><input type="number" id="waterMassFlow" step="0.001" value="0.15"></div>
           <div class="input-group"><label for="waterTempIn">Water Inlet Temperature (°C):</label><input type="number" id="waterTempIn" step="0.1" value="25"></div>
@@ -48,45 +44,19 @@
             <label for="compressionRatio">Compression Ratio:</label>
             <input type="number" id="compressionRatio" step="0.1" value="16" min="8" max="25">
           </div>
+
+          <!-- FUEL TYPE SELECTOR -->
           <div class="input-group">
             <label for="fuelType">Fuel Type:</label>
-            <select id="fuelType" onchange="updateFuelProperties()">
-              <option value="diesel">Diesel (B0)</option>
-              <option value="biodiesel20">Biodiesel B20</option>
-              <option value="biodiesel100">Biodiesel B100</option>
-              <option value="custom">Custom</option>
-            </select>
-          </div>
-          
-          <!-- CUSTOM FUEL -->
-          <div class="input-group" id="customFuelGroup" style="display: none;">
-            <h3>Custom Fuel Properties</h3>
-
-            <label for="hcRatio">H/C Ratio:</label>
-            <input type="number" id="hcRatio" step="0.01" value="1.8">
-
-            <label for="ocRatio">O/C Ratio:</label>
-            <input type="number" id="ocRatio" step="0.01" value="0.0">
-
-            <label for="scRatio">S/C Ratio:</label>
-            <input type="number" id="scRatio" step="0.001" value="0.0">
-
-            <hr>
-
-            <label for="fuelDensity">Density (kg/m³):</label>
-            <input type="number" id="fuelDensity" step="0.1" value="830">
-
-            <label for="fuelViscosity">Viscosity (cSt):</label>
-            <input type="number" id="fuelViscosity" step="0.01" value="2.5">
-
-            <label for="cetaneNumber">Cetane Number:</label>
-            <input type="number" id="cetaneNumber" step="0.1" value="50">
-
-            <label for="customLHV">Calorific Value (MJ/kg):</label>
-            <input type="number" id="customLHV" step="0.1" value="42.5">
-
-            <label for="flashPoint">Flash Point (°C):</label>
-            <input type="number" id="flashPoint" step="0.1" value="55">
+            <div class="fuel-select-row">
+              <select id="fuelType" onchange="updateFuelProperties()">
+                <option value="diesel">Diesel (B0)</option>
+                <option value="biodiesel20">Biodiesel B20</option>
+                <option value="biodiesel100">Biodiesel B100</option>
+                <!-- custom fuel options injected here by JS -->
+              </select>
+              <button class="btn-manage-fuels" onclick="openCustomFuelModal()" title="Manage Custom Fuels">⚙ Custom Fuels</button>
+            </div>
           </div>
 
           <button class="calculate-btn" onclick="calculateAll()">Calculate</button>
@@ -97,28 +67,18 @@
         <div class="results-section">
           <h2 class="section-title">Results</h2>
 
-          <!-- FOUR SEPARATE CHARTS FOR COMPARISON -->
           <h3>Energy Efficiency vs Load</h3>
-          <div class="chart-container-small">
-            <canvas id="energyLoadChart"></canvas>
-          </div>
+          <div class="chart-container-small"><canvas id="energyLoadChart"></canvas></div>
 
           <h3>Exergy Efficiency vs Load</h3>
-          <div class="chart-container-small">
-            <canvas id="exergyLoadChart"></canvas>
-          </div>
+          <div class="chart-container-small"><canvas id="exergyLoadChart"></canvas></div>
 
           <h3>Energy Efficiency vs Compression Ratio</h3>
-          <div class="chart-container-small">
-            <canvas id="energyCRChart"></canvas>
-          </div>
+          <div class="chart-container-small"><canvas id="energyCRChart"></canvas></div>
 
           <h3>Exergy Efficiency vs Compression Ratio</h3>
-          <div class="chart-container-small">
-            <canvas id="exergyCRChart"></canvas>
-          </div>
+          <div class="chart-container-small"><canvas id="exergyCRChart"></canvas></div>
 
-          <!-- NUMERIC RESULTS -->
           <h3 style="margin-top: 30px;">Current Calculation Results</h3>
           <div class="result-item"><span class="result-label">Fuel Type:</span><span class="result-value" id="currentFuelType">--</span></div>
           <div class="result-item"><span class="result-label">Compression Ratio:</span><span class="result-value" id="currentCR">--</span></div>
@@ -153,51 +113,38 @@
         <h3>Energy Analysis</h3>
         <p>Input Energy:</p>
         <p>$$ E_{in} = \dot{m}_f \cdot LHV $$</p>
-
         <p>Brake Power:</p>
         <p>$$ E_{BP} = \frac{2 \pi N T}{60 \cdot 1000} $$</p>
-
         <p>Cooling Water Energy:</p>
         <p>$$ E_{cw} = \dot{m}_w \cdot C_p \cdot (T_2 - T_1) $$</p>
-
         <p>Exhaust Gas Energy:</p>
         <p>$$ E_{eg} = (\dot{m}_a + \dot{m}_f) \cdot C_{p,eg} \cdot (T_5 - T_a) $$</p>
-
         <p>Unaccounted Energy:</p>
         <p>$$ E_{unacc} = E_{in} - (E_{BP} + E_{cw} + E_{eg}) $$</p>
-
         <p>Ideal Cycle Efficiency (Otto Cycle):</p>
         <p>$$ \eta_{ideal} = 1 - \frac{1}{r^{\gamma-1}} $$</p>
-
         <p>Energy Efficiency (with CR and fuel corrections):</p>
         <p>$$ \eta_E = \frac{E_{BP}}{E_{in}} \cdot CR_{factor} \cdot Fuel_{factor} $$</p>
 
         <h3>Exergy Analysis</h3>
         <p>Chemical Exergy Factor:</p>
         <p>$$ ex_{chem} = 1.0374 + 0.0159(H/C) + 0.0567(O/C) + 0.5985(S/C)(1 - 0.1737(H/C)) $$</p>
-
         <p>Input Exergy:</p>
         <p>$$ Ex_{in} = \dot{m}_f \cdot LHV \cdot ex_{chem} $$</p>
-
         <p>Shaft Exergy:</p>
         <p>$$ Ex_{shaft} = E_{BP} $$</p>
-
         <p>Cooling Water Exergy Loss:</p>
         <p>$$ Ex_{cw} = E_{cw} + \dot{m}_w C_p T_a \ln\left(\frac{T_1}{T_2}\right) $$</p>
-
         <p>Exhaust Gas Exergy Loss:</p>
         <p>$$ Ex_{eg} = E_{eg} + \Big[ (\dot{m}_a + \dot{m}_f) T_a (C_{p,eg} \ln\frac{T_a}{T_5}) - R_{eg} \ln\frac{P_a}{P_{eg}} \Big] $$</p>
-
         <p>Exergy Destruction:</p>
         <p>$$ Ex_D = Ex_{in} - (Ex_{shaft} + Ex_{cw} + Ex_{eg}) $$</p>
-
         <p>Exergy Efficiency:</p>
         <p>$$ \eta_{Ex} = \frac{Ex_{shaft}}{Ex_{in}} $$</p>
 
         <h3>Sustainability Metrics</h3>
         <p>Sustainability Index:</p>
         <p>$$ SI = \frac{1}{1 - \frac{Ex_{shaft}}{Ex_{in}}} $$</p>
-
         <p>Exergy Performance Coefficient:</p>
         <p>$$ EPC = \frac{Ex_{shaft}}{Ex_D} $$</p>
 
@@ -233,12 +180,10 @@
             <div class="input-group"><label for="pcs_stroke">Stroke (m)</label><input id="pcs_stroke" type="number" step="0.001" value="0.09"></div>
             <div class="input-group"><label for="pcs_conrod">Conrod length (m)</label><input id="pcs_conrod" type="number" step="0.001" value="0.15"></div>
             <div class="input-group"><label for="pcs_cr">Compression ratio</label><input id="pcs_cr" type="number" step="0.1" value="17"></div>
-
             <div class="input-group"><label for="pcs_gamma">Gamma (γ)</label><input id="pcs_gamma" type="number" step="0.01" value="1.35"></div>
             <div class="input-group"><label for="pcs_soc">Start of combustion SOC (deg)</label><input id="pcs_soc" type="number" step="1" value="355"></div>
             <div class="input-group"><label for="pcs_dur">Combustion duration (deg)</label><input id="pcs_dur" type="number" step="1" value="40"></div>
             <div class="input-group"><label for="pcs_a">Wiebe a</label><input id="pcs_a" type="number" step="0.1" value="5"></div>
-
             <div class="input-group"><label for="pcs_m">Wiebe m</label><input id="pcs_m" type="number" step="0.1" value="2"></div>
             <div class="input-group"><label for="pcs_fuel">Fuel mass per cycle (g)</label><input id="pcs_fuel" type="number" step="0.001" value="0.015"></div>
             <div class="input-group"><label for="pcs_lhv">Fuel LHV (kJ/kg)</label><input id="pcs_lhv" type="number" step="10" value="43000"></div>
@@ -250,7 +195,6 @@
 
         <div class="results-section pcs-results">
           <h3 class="section-title">Simulation Output</h3>
-          
           <div class="pcs-numeric-results">
             <div class="result-item">
               <span class="result-label">Indicated Work (kJ):</span>
@@ -261,13 +205,11 @@
               <span class="result-value" id="pcs_eta">--</span>
             </div>
           </div>
-
           <div class="pcs-charts">
             <div class="pcs-chart-wrapper">
               <h4>Pressure vs Crank Angle (P–θ)</h4>
               <canvas id="pcs_chartP"></canvas>
             </div>
-
             <div class="pcs-chart-wrapper">
               <h4>Heat Release Rate vs Crank Angle (dQ/dθ)</h4>
               <canvas id="pcs_chartQ"></canvas>
@@ -277,6 +219,77 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- ===== CUSTOM FUEL MODAL ===== -->
+  <div id="customFuelModal" class="modal-overlay" style="display:none;" onclick="handleModalOverlayClick(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 class="modal-title">⛽ Custom Fuel Manager</h2>
+        <button class="modal-close-btn" onclick="closeCustomFuelModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- LEFT: form to create/edit -->
+        <div class="modal-form-col">
+          <h3 class="modal-col-title" id="modalFormTitle">New Custom Fuel</h3>
+
+          <div class="input-group">
+            <label for="customFuelName">Fuel Name <span style="color:#ef4444">*</span></label>
+            <input type="text" id="customFuelName" placeholder="e.g. My Blend B15" maxlength="40">
+          </div>
+
+          <div class="modal-field-grid">
+            <div class="input-group">
+              <label for="hcRatio">H/C Ratio</label>
+              <input type="number" id="hcRatio" step="0.01" value="1.8">
+            </div>
+            <div class="input-group">
+              <label for="ocRatio">O/C Ratio</label>
+              <input type="number" id="ocRatio" step="0.01" value="0.0">
+            </div>
+            <div class="input-group">
+              <label for="scRatio">S/C Ratio</label>
+              <input type="number" id="scRatio" step="0.001" value="0.0">
+            </div>
+            <div class="input-group">
+              <label for="fuelDensity">Density (kg/m³)</label>
+              <input type="number" id="fuelDensity" step="0.1" value="830">
+            </div>
+            <div class="input-group">
+              <label for="fuelViscosity">Viscosity (cSt)</label>
+              <input type="number" id="fuelViscosity" step="0.01" value="2.5">
+            </div>
+            <div class="input-group">
+              <label for="cetaneNumber">Cetane Number</label>
+              <input type="number" id="cetaneNumber" step="0.1" value="50">
+            </div>
+            <div class="input-group">
+              <label for="customLHV">LHV (MJ/kg)</label>
+              <input type="number" id="customLHV" step="0.1" value="42.5">
+            </div>
+            <div class="input-group">
+              <label for="flashPoint">Flash Point (°C)</label>
+              <input type="number" id="flashPoint" step="0.1" value="55">
+            </div>
+          </div>
+
+          <div class="modal-form-actions" id="modalFormActions">
+            <button class="btn-modal-save" onclick="saveCustomFuel()">💾 Save Fuel</button>
+            <button class="btn-modal-new" id="modalNewBtn" onclick="prepareNewFuelForm()" style="display:none;">+ New Fuel</button>
+            <button class="btn-modal-delete" id="modalDeleteBtn" onclick="deleteCustomFuel()" style="display:none;">🗑 Delete</button>
+          </div>
+        </div>
+
+        <!-- RIGHT: list of saved custom fuels -->
+        <div class="modal-list-col">
+          <h3 class="modal-col-title">Saved Custom Fuels <span id="savedFuelCount" class="fuel-count-badge">0</span></h3>
+          <div id="savedFuelsContainer" class="modal-fuels-list">
+            <p class="no-fuels-msg" id="noFuelsMsg">No custom fuels saved yet. Fill in the form and click "Save Fuel".</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="script.js"></script>
