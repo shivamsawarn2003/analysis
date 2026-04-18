@@ -1,35 +1,36 @@
 // ==============================
 // Constants
 // ==============================
-const CP_WATER        = 4.18;
-const CP_EXHAUST      = 1.15;
-const R_EXHAUST       = 0.287;
+const CP_WATER         = 4.18;
+const CP_EXHAUST       = 1.15;
+const R_EXHAUST        = 0.287;
 const AMBIENT_PRESSURE = 1.01325;
 const EXHAUST_PRESSURE = 1.05;
-const GAMMA           = 1.35;
+const GAMMA            = 1.35;
 
 let energyLoadChart, exergyLoadChart, energyCRChart, exergyCRChart;
+let noxCRChart, noxLoadChart;
 
 // ==============================
 // Color pools
 // ==============================
 const CUSTOM_COLOR_POOL = [
-  { border: '#8b5cf6', bg: 'rgba(139,92,246,0.55)' },
-  { border: '#ef4444', bg: 'rgba(239,68,68,0.55)' },
-  { border: '#06b6d4', bg: 'rgba(6,182,212,0.55)' },
-  { border: '#ec4899', bg: 'rgba(236,72,153,0.55)' },
-  { border: '#84cc16', bg: 'rgba(132,204,22,0.55)' },
-  { border: '#f97316', bg: 'rgba(249,115,22,0.55)' },
-  { border: '#14b8a6', bg: 'rgba(20,184,166,0.55)' },
-  { border: '#a855f7', bg: 'rgba(168,85,247,0.55)' },
-  { border: '#64748b', bg: 'rgba(100,116,139,0.55)' },
-  { border: '#dc2626', bg: 'rgba(220,38,38,0.55)' },
+  { border: '#8b5cf6', bg: 'rgba(139,92,246,0.18)', dash: [6,3] },
+  { border: '#ef4444', bg: 'rgba(239,68,68,0.18)',  dash: [8,4] },
+  { border: '#06b6d4', bg: 'rgba(6,182,212,0.18)',  dash: [] },
+  { border: '#ec4899', bg: 'rgba(236,72,153,0.18)', dash: [4,4] },
+  { border: '#84cc16', bg: 'rgba(132,204,22,0.18)', dash: [10,4] },
+  { border: '#f97316', bg: 'rgba(249,115,22,0.18)', dash: [5,3] },
+  { border: '#14b8a6', bg: 'rgba(20,184,166,0.18)', dash: [7,3] },
+  { border: '#a855f7', bg: 'rgba(168,85,247,0.18)', dash: [3,3] },
+  { border: '#64748b', bg: 'rgba(100,116,139,0.18)', dash: [9,3] },
+  { border: '#dc2626', bg: 'rgba(220,38,38,0.18)',  dash: [6,6] },
 ];
 
 const BUILTIN_COLORS = {
-  diesel:       { border: '#3b82f6', bg: 'rgba(59,130,246,0.55)' },
-  biodiesel20:  { border: '#10b981', bg: 'rgba(16,185,129,0.55)' },
-  biodiesel100: { border: '#f59e0b', bg: 'rgba(245,158,11,0.55)' },
+  diesel:       { border: '#3b82f6', bg: 'rgba(59,130,246,0.18)',  dash: [] },
+  biodiesel20:  { border: '#10b981', bg: 'rgba(16,185,129,0.18)',  dash: [6,3] },
+  biodiesel100: { border: '#f59e0b', bg: 'rgba(245,158,11,0.18)',  dash: [10,4] },
 };
 
 const BUILTIN_NAMES = {
@@ -61,20 +62,16 @@ const BUILTIN_FUELS = {
 
 // ==============================
 // Custom Fuel Store
-// key  = 'custom_N'  (N = 1,2,3…)
-// Each record: { name, lhv, density, viscosity, cetane, flashPoint,
-//               hcRatio, ocRatio, scRatio, colorIndex }
 // ==============================
-let customFuels   = {};   // all saved custom fuels
-let customCounter = 0;    // monotonically increasing ID counter
-let editingFuelId = null; // null = creating new; string = editing existing
+let customFuels   = {};
+let customCounter = 0;
+let editingFuelId = null;
+let noxCustomColorIdx = 0;
+const noxDynamicColors = {};
 
-// ----------------------------------------------------------------
-// Derive thermo props from a saved custom fuel record
-// ----------------------------------------------------------------
 function buildCustomProps(rec) {
-  const combEff = Math.max(0.85, 1.0 - Math.max(0, (rec.viscosity - 2.5) * 0.008));
-  const ignQual = Math.max(0.90, Math.min(1.15, 1.0 + (rec.cetane - 50) * 0.004));
+  var combEff = Math.max(0.85, 1.0 - Math.max(0, (rec.viscosity - 2.5) * 0.008));
+  var ignQual = Math.max(0.90, Math.min(1.15, 1.0 + (rec.cetane - 50) * 0.004));
   return {
     lhv: rec.lhv, density: rec.density, viscosity: rec.viscosity,
     cetane: rec.cetane, flashPoint: rec.flashPoint,
@@ -98,15 +95,26 @@ function getFuelColor(fuelType) {
 function getFuelDisplayName(fuelType) {
   if (BUILTIN_NAMES[fuelType]) return BUILTIN_NAMES[fuelType];
   if (customFuels[fuelType])   return customFuels[fuelType].name;
-  return 'Unknown Fuel';
+  return fuelType;
+}
+
+// Color for NOx charts (same pool, allows custom fuels too)
+function getNoxColor(fuelKey) {
+  if (BUILTIN_COLORS[fuelKey]) return BUILTIN_COLORS[fuelKey];
+  if (customFuels[fuelKey])    return CUSTOM_COLOR_POOL[customFuels[fuelKey].colorIndex % CUSTOM_COLOR_POOL.length];
+  if (!noxDynamicColors[fuelKey]) {
+    noxDynamicColors[fuelKey] = CUSTOM_COLOR_POOL[noxCustomColorIdx % CUSTOM_COLOR_POOL.length];
+    noxCustomColorIdx++;
+  }
+  return noxDynamicColors[fuelKey];
 }
 
 // ==============================
 // Main dropdown onChange
 // ==============================
 function updateFuelProperties() {
-  const sel   = document.getElementById('fuelType');
-  const props = getFuelProperties(sel.value);
+  var sel   = document.getElementById('fuelType');
+  var props = getFuelProperties(sel.value);
   if (props) document.getElementById('lhv').value = props.lhv;
 }
 
@@ -130,146 +138,139 @@ function handleModalOverlayClick(e) {
   }
 }
 
-// ==============================
-// Prepare the form for a NEW fuel
-// ==============================
 function prepareNewFuelForm() {
   editingFuelId = null;
-  document.getElementById('modalFormTitle').textContent         = '➕ New Custom Fuel';
-  document.getElementById('customFuelName').value               = '';
-  document.getElementById('hcRatio').value                      = '1.8';
-  document.getElementById('ocRatio').value                      = '0.0';
-  document.getElementById('scRatio').value                      = '0.0';
-  document.getElementById('fuelDensity').value                  = '830';
-  document.getElementById('fuelViscosity').value                = '2.5';
-  document.getElementById('cetaneNumber').value                 = '50';
-  document.getElementById('customLHV').value                    = '42.5';
-  document.getElementById('flashPoint').value                   = '55';
-  document.getElementById('modalDeleteBtn').style.display       = 'none';
-  document.getElementById('modalNewBtn').style.display          = 'none';
+  document.getElementById('modalFormTitle').textContent   = '➕ New Custom Fuel';
+  document.getElementById('customFuelName').value         = '';
+  document.getElementById('hcRatio').value                = '1.8';
+  document.getElementById('ocRatio').value                = '0.0';
+  document.getElementById('scRatio').value                = '0.0';
+  document.getElementById('fuelDensity').value            = '830';
+  document.getElementById('fuelViscosity').value          = '2.5';
+  document.getElementById('cetaneNumber').value           = '50';
+  document.getElementById('customLHV').value              = '42.5';
+  document.getElementById('flashPoint').value             = '55';
+  document.getElementById('modalDeleteBtn').style.display = 'none';
+  document.getElementById('modalNewBtn').style.display    = 'none';
   document.getElementById('customFuelName').focus();
 }
 
-// ==============================
-// Load an existing fuel into the form for editing
-// ==============================
 function editCustomFuel(id) {
   if (!customFuels[id]) return;
   editingFuelId = id;
-  const r = customFuels[id];
-  document.getElementById('modalFormTitle').textContent         = '✏️ Edit: ' + r.name;
-  document.getElementById('customFuelName').value               = r.name;
-  document.getElementById('hcRatio').value                      = r.hcRatio;
-  document.getElementById('ocRatio').value                      = r.ocRatio;
-  document.getElementById('scRatio').value                      = r.scRatio;
-  document.getElementById('fuelDensity').value                  = r.density;
-  document.getElementById('fuelViscosity').value                = r.viscosity;
-  document.getElementById('cetaneNumber').value                 = r.cetane;
-  document.getElementById('customLHV').value                    = r.lhv;
-  document.getElementById('flashPoint').value                   = r.flashPoint;
-  document.getElementById('modalDeleteBtn').style.display       = 'inline-block';
-  document.getElementById('modalNewBtn').style.display          = 'inline-block';
+  var r = customFuels[id];
+  document.getElementById('modalFormTitle').textContent   = '✏️ Edit: ' + r.name;
+  document.getElementById('customFuelName').value         = r.name;
+  document.getElementById('hcRatio').value                = r.hcRatio;
+  document.getElementById('ocRatio').value                = r.ocRatio;
+  document.getElementById('scRatio').value                = r.scRatio;
+  document.getElementById('fuelDensity').value            = r.density;
+  document.getElementById('fuelViscosity').value          = r.viscosity;
+  document.getElementById('cetaneNumber').value           = r.cetane;
+  document.getElementById('customLHV').value              = r.lhv;
+  document.getElementById('flashPoint').value             = r.flashPoint;
+  document.getElementById('modalDeleteBtn').style.display = 'inline-block';
+  document.getElementById('modalNewBtn').style.display    = 'inline-block';
   document.getElementById('customFuelName').focus();
 }
 
-// ==============================
-// Save (create or update) a custom fuel
-// ==============================
 function saveCustomFuel() {
-  const name = document.getElementById('customFuelName').value.trim();
+  var name = document.getElementById('customFuelName').value.trim();
   if (!name) {
     alert('Please enter a fuel name before saving.');
     document.getElementById('customFuelName').focus();
     return;
   }
-
-  const record = {
-    name,
-    hcRatio:    parseFloat(document.getElementById('hcRatio').value)     || 1.8,
-    ocRatio:    parseFloat(document.getElementById('ocRatio').value)     || 0.0,
-    scRatio:    parseFloat(document.getElementById('scRatio').value)     || 0.0,
-    density:    parseFloat(document.getElementById('fuelDensity').value) || 830,
-    viscosity:  parseFloat(document.getElementById('fuelViscosity').value)|| 2.5,
-    cetane:     parseFloat(document.getElementById('cetaneNumber').value) || 50,
-    lhv:        parseFloat(document.getElementById('customLHV').value)   || 42.5,
-    flashPoint: parseFloat(document.getElementById('flashPoint').value)  || 55,
+  var record = {
+    name: name,
+    hcRatio:    parseFloat(document.getElementById('hcRatio').value)      || 1.8,
+    ocRatio:    parseFloat(document.getElementById('ocRatio').value)      || 0.0,
+    scRatio:    parseFloat(document.getElementById('scRatio').value)      || 0.0,
+    density:    parseFloat(document.getElementById('fuelDensity').value)  || 830,
+    viscosity:  parseFloat(document.getElementById('fuelViscosity').value) || 2.5,
+    cetane:     parseFloat(document.getElementById('cetaneNumber').value)  || 50,
+    lhv:        parseFloat(document.getElementById('customLHV').value)    || 42.5,
+    flashPoint: parseFloat(document.getElementById('flashPoint').value)   || 55,
   };
 
   if (editingFuelId) {
-    // ---- UPDATE existing ----
     record.colorIndex = customFuels[editingFuelId].colorIndex;
     customFuels[editingFuelId] = record;
-    // Update its label in the dropdown
-    const opt = document.querySelector('#fuelType option[value="' + editingFuelId + '"]');
+    var opt = document.querySelector('#fuelType option[value="' + editingFuelId + '"]');
     if (opt) opt.textContent = record.name;
-    // If it's currently active, sync the LHV input
     if (document.getElementById('fuelType').value === editingFuelId) {
       document.getElementById('lhv').value = record.lhv;
     }
+    // Also update NOx fuel dropdown if present
+    syncNoxFuelDropdown();
     showModalToast('✅ Fuel updated!');
   } else {
-    // ---- CREATE new ----
-    const id = 'custom_' + (++customCounter);
+    var id = 'custom_' + (++customCounter);
     record.colorIndex = (customCounter - 1) % CUSTOM_COLOR_POOL.length;
     customFuels[id] = record;
-    // Add <option> to the main dropdown
     addFuelOption(id, record.name);
-    // Auto-select the new fuel
     document.getElementById('fuelType').value = id;
     document.getElementById('lhv').value = record.lhv;
+    // Sync NOx dropdown too
+    addNoxFuelOption(id, record.name);
     showModalToast('✅ Fuel created and selected!');
   }
-
   renderSavedFuelsList();
-  prepareNewFuelForm(); // Reset form ready for another entry
+  prepareNewFuelForm();
 }
 
-// ==============================
-// Delete a custom fuel
-// ==============================
 function deleteCustomFuel() {
   if (!editingFuelId) return;
-  const name = customFuels[editingFuelId] ? customFuels[editingFuelId].name : 'this fuel';
+  var name = customFuels[editingFuelId] ? customFuels[editingFuelId].name : 'this fuel';
   if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
 
-  // Remove from dropdown
-  const opt = document.querySelector('#fuelType option[value="' + editingFuelId + '"]');
+  var opt = document.querySelector('#fuelType option[value="' + editingFuelId + '"]');
   if (opt) opt.remove();
+  var noxOpt = document.querySelector('#nox-fuel option[value="' + editingFuelId + '"]');
+  if (noxOpt) noxOpt.remove();
 
-  // If it was currently selected, fall back to diesel
-  const sel = document.getElementById('fuelType');
+  var sel = document.getElementById('fuelType');
   if (sel.value === editingFuelId) {
     sel.value = 'diesel';
     document.getElementById('lhv').value = BUILTIN_FUELS.diesel.lhv;
   }
-
   delete customFuels[editingFuelId];
   editingFuelId = null;
   renderSavedFuelsList();
   prepareNewFuelForm();
 }
 
-// ==============================
-// Add an <option> to the main dropdown
-// ==============================
 function addFuelOption(id, name) {
-  const sel = document.getElementById('fuelType');
-  const opt = document.createElement('option');
+  var sel = document.getElementById('fuelType');
+  var opt = document.createElement('option');
   opt.value       = id;
   opt.textContent = name;
   sel.appendChild(opt);
 }
 
-// ==============================
-// Render the saved-fuels cards inside the modal
-// ==============================
-function renderSavedFuelsList() {
-  const container  = document.getElementById('savedFuelsContainer');
-  const noMsg      = document.getElementById('noFuelsMsg');
-  const countBadge = document.getElementById('savedFuelCount');
-  const ids        = Object.keys(customFuels);
-  const currentSel = document.getElementById('fuelType').value;
+function addNoxFuelOption(id, name) {
+  var sel = document.getElementById('nox-fuel');
+  if (!sel) return;
+  var existing = sel.querySelector('option[value="' + id + '"]');
+  if (existing) { existing.textContent = name; return; }
+  var opt = document.createElement('option');
+  opt.value       = id;
+  opt.textContent = name;
+  sel.appendChild(opt);
+}
 
+function syncNoxFuelDropdown() {
+  Object.keys(customFuels).forEach(function(id) {
+    addNoxFuelOption(id, customFuels[id].name);
+  });
+}
+
+function renderSavedFuelsList() {
+  var container  = document.getElementById('savedFuelsContainer');
+  var noMsg      = document.getElementById('noFuelsMsg');
+  var countBadge = document.getElementById('savedFuelCount');
+  var ids        = Object.keys(customFuels);
+  var currentSel = document.getElementById('fuelType').value;
   countBadge.textContent = ids.length;
 
   if (ids.length === 0) {
@@ -283,29 +284,18 @@ function renderSavedFuelsList() {
   container.innerHTML = '';
 
   ids.forEach(function(id) {
-    const r       = customFuels[id];
-    const color   = CUSTOM_COLOR_POOL[r.colorIndex % CUSTOM_COLOR_POOL.length];
-    const isSel   = (currentSel === id);
-    const isEdit  = (editingFuelId === id);
-
-    const card = document.createElement('div');
+    var r      = customFuels[id];
+    var color  = CUSTOM_COLOR_POOL[r.colorIndex % CUSTOM_COLOR_POOL.length];
+    var isSel  = (currentSel === id);
+    var isEdit = (editingFuelId === id);
+    var card   = document.createElement('div');
     card.className = 'fuel-card' + (isSel ? ' fuel-card--active' : '') + (isEdit ? ' fuel-card--editing' : '');
-
     card.innerHTML =
       '<div class="fuel-card-strip" style="background:' + color.border + '"></div>' +
       '<div class="fuel-card-body">' +
         '<div class="fuel-card-name">' + escapeHtml(r.name) + '</div>' +
-        '<div class="fuel-card-meta">' +
-          'LHV <b>' + r.lhv + '</b> MJ/kg &nbsp;|&nbsp; ' +
-          'CN <b>' + r.cetane + '</b> &nbsp;|&nbsp; ' +
-          'H/C <b>' + r.hcRatio + '</b> &nbsp;|&nbsp; ' +
-          'O/C <b>' + r.ocRatio + '</b>' +
-        '</div>' +
-        '<div class="fuel-card-meta">' +
-          'ρ <b>' + r.density + '</b> kg/m³ &nbsp;|&nbsp; ' +
-          'ν <b>' + r.viscosity + '</b> cSt &nbsp;|&nbsp; ' +
-          'FP <b>' + r.flashPoint + '</b> °C' +
-        '</div>' +
+        '<div class="fuel-card-meta">LHV <b>' + r.lhv + '</b> MJ/kg &nbsp;|&nbsp; CN <b>' + r.cetane + '</b> &nbsp;|&nbsp; H/C <b>' + r.hcRatio + '</b> &nbsp;|&nbsp; O/C <b>' + r.ocRatio + '</b></div>' +
+        '<div class="fuel-card-meta">ρ <b>' + r.density + '</b> kg/m³ &nbsp;|&nbsp; ν <b>' + r.viscosity + '</b> cSt &nbsp;|&nbsp; FP <b>' + r.flashPoint + '</b> °C</div>' +
       '</div>' +
       '<div class="fuel-card-btns">' +
         (isSel
@@ -313,33 +303,26 @@ function renderSavedFuelsList() {
           : '<button class="btn-card-select" onclick="selectFuelFromModal(\'' + id + '\')">Select</button>') +
         '<button class="btn-card-edit' + (isEdit ? ' btn-card-edit--active' : '') + '" onclick="editCustomFuel(\'' + id + '\')">✏️ Edit</button>' +
       '</div>';
-
     container.appendChild(card);
   });
 }
 
-// ==============================
-// Select a fuel from inside the modal (without closing it)
-// ==============================
 function selectFuelFromModal(id) {
   if (!customFuels[id]) return;
   document.getElementById('fuelType').value = id;
   document.getElementById('lhv').value      = customFuels[id].lhv;
-  renderSavedFuelsList(); // refresh badges
+  renderSavedFuelsList();
 }
 
-// ==============================
-// Small in-modal toast notification
-// ==============================
 function showModalToast(msg) {
   var toast = document.getElementById('modalToast');
   if (!toast) {
-    toast            = document.createElement('div');
-    toast.id         = 'modalToast';
-    toast.className  = 'modal-toast';
+    toast           = document.createElement('div');
+    toast.id        = 'modalToast';
+    toast.className = 'modal-toast';
     document.getElementById('modalFormActions').appendChild(toast);
   }
-  toast.textContent  = msg;
+  toast.textContent   = msg;
   toast.style.display = 'block';
   toast.style.opacity = '1';
   clearTimeout(toast._hideTimer);
@@ -349,7 +332,6 @@ function showModalToast(msg) {
   }, 2200);
 }
 
-// XSS-safe
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
@@ -360,8 +342,8 @@ function escapeHtml(str) {
 // Fuel efficiency helpers
 // ==============================
 function getFuelEfficiencyFactor(fuelType) {
-  const p = getFuelProperties(fuelType);
-  const viscPenalty = Math.max(0.9, 1.0 - (p.viscosity - 2.5) * 0.01);
+  var p = getFuelProperties(fuelType);
+  var viscPenalty = Math.max(0.9, 1.0 - (p.viscosity - 2.5) * 0.01);
   return p.combustionEfficiency * p.ignitionQuality * viscPenalty;
 }
 
@@ -374,14 +356,49 @@ function getCRCorrectionFactor(cr) {
 }
 
 function getChemicalExergyFactor() {
-  const fuelType = document.getElementById('fuelType').value;
-  const p        = getFuelProperties(fuelType);
+  var fuelType = document.getElementById('fuelType').value;
+  var p        = getFuelProperties(fuelType);
   return 1.0374 + 0.0159 * p.hcRatio + 0.0567 * p.ocRatio +
          0.5985 * p.scRatio * (1 - 0.1737 * p.hcRatio);
 }
 
 // ==============================
-// Chart.js — 4 charts
+// Smart Y-axis label formatter
+// Handles values like: 12, 271, 118, 627, 140 etc.
+// Auto-detects scale and picks nice ticks
+// ==============================
+function formatNoxAxisValue(value) {
+  if (value === null || value === undefined || isNaN(value)) return '';
+  var abs = Math.abs(value);
+  if (abs >= 1e9)       return (value / 1e9).toPrecision(3).replace(/\.?0+$/, '') + 'B';
+  if (abs >= 1e6)       return (value / 1e6).toPrecision(3).replace(/\.?0+$/, '') + 'M';
+  if (abs >= 1e3)       return (value / 1e3).toPrecision(3).replace(/\.?0+$/, '') + 'k';
+  if (abs >= 1)         return parseFloat(value.toPrecision(4)) + '';
+  if (abs >= 0.01)      return parseFloat(value.toPrecision(3)) + '';
+  return value.toExponential(2);
+}
+
+function getNoxYAxisConfig(allValues) {
+  if (!allValues || allValues.length === 0) {
+    return { min: undefined, max: undefined, stepSize: undefined };
+  }
+  var min = Math.min.apply(null, allValues);
+  var max = Math.max.apply(null, allValues);
+  if (min === max) {
+    // single value — pad around it
+    var pad = Math.abs(min) * 0.5 || 50;
+    min = min - pad;
+    max = max + pad;
+  }
+  var range = max - min;
+  // Add 10% padding top and bottom
+  var padded_min = Math.max(0, min - range * 0.1);
+  var padded_max = max + range * 0.1;
+  return { min: padded_min, max: padded_max };
+}
+
+// ==============================
+// Chart.js — 4 efficiency charts
 // ==============================
 function initCharts() {
   function makeChart(ctxId, titleText, xLabel, yLabel) {
@@ -428,10 +445,10 @@ function initCharts() {
     });
   }
 
-  energyLoadChart  = makeChart('energyLoadChart',  'Energy Efficiency vs Brake Load',        'Brake Load (kg)',   'Energy Efficiency (%)');
-  exergyLoadChart  = makeChart('exergyLoadChart',  'Exergy Efficiency vs Brake Load',        'Brake Load (kg)',   'Exergy Efficiency (%)');
-  energyCRChart    = makeChart('energyCRChart',    'Energy Efficiency vs Compression Ratio', 'Compression Ratio', 'Energy Efficiency (%)');
-  exergyCRChart    = makeChart('exergyCRChart',    'Exergy Efficiency vs Compression Ratio', 'Compression Ratio', 'Exergy Efficiency (%)');
+  energyLoadChart = makeChart('energyLoadChart',  'Energy Efficiency vs Brake Load',        'Brake Load (kg)',   'Energy Efficiency (%)');
+  exergyLoadChart = makeChart('exergyLoadChart',  'Exergy Efficiency vs Brake Load',        'Brake Load (kg)',   'Exergy Efficiency (%)');
+  energyCRChart   = makeChart('energyCRChart',    'Energy Efficiency vs Compression Ratio', 'Compression Ratio', 'Energy Efficiency (%)');
+  exergyCRChart   = makeChart('exergyCRChart',    'Exergy Efficiency vs Compression Ratio', 'Compression Ratio', 'Exergy Efficiency (%)');
 }
 
 function updateCharts(results, brakeLoad, fuelType) {
@@ -485,11 +502,11 @@ function clearChartData() {
 // ==============================
 // Tabs
 // ==============================
-function showTab(tabName) {
+function showTab(tabName, evt) {
   document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
   document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
   document.getElementById(tabName + '-tab').classList.add('active');
-  event.target.classList.add('active');
+  if (evt && evt.target) evt.target.classList.add('active');
 }
 
 // ==============================
@@ -561,7 +578,7 @@ function validateInputs() {
 function calculateAll() {
   if (!validateInputs()) return;
 
-  var btn = document.querySelector('.calculate-btn');
+  var btn = document.querySelector('#calculator-tab .calculate-btn');
   btn.classList.add('loading'); btn.textContent = 'Calculating…';
 
   var mf  = parseFloat(document.getElementById('fuelMassFlow').value) || 0;
@@ -598,7 +615,7 @@ function calculateAll() {
   var ExCw    = Ecw + (mw * CP_WATER * TaK * Math.log(T1K / T2K));
   var ExEg    = Eeg + ((ma+mf) * TaK * (CP_EXHAUST * Math.log(TaK / T5K)) - R_EXHAUST * Math.log(AMBIENT_PRESSURE / EXHAUST_PRESSURE));
   var ExD     = ExIn - (ExShaft + ExCw + ExEg);
-  var etaEx   = (ExShaft / ExIn) * 100 * crFactor * fuelFactor;
+  var etaEx   = (ExShaft / ExIn) * 100;
   var SI      = 1 / (1 - ExShaft / ExIn);
   var EPC     = ExShaft / ExD;
 
@@ -613,6 +630,222 @@ function calculateAll() {
     btn.classList.remove('loading');
     btn.textContent = 'Calculate';
   }, 500);
+}
+
+// ==============================
+// NOx Emission Charts
+// ==============================
+var noxData = []; // array of { fuelKey, fuelLabel, cr, load, nox, unit }
+
+function initNoxCharts() {
+  function makeNoxChart(ctxId, xLabel) {
+    return new Chart(document.getElementById(ctxId).getContext('2d'), {
+      type: 'line',
+      data: { datasets: [] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(15,23,42,0.9)',
+            titleFont: { size: 13 }, bodyFont: { size: 12 }, padding: 12,
+            callbacks: {
+              label: function(ctx) {
+                var unit = ctx.dataset.unit || '';
+                return (ctx.dataset.label || '') + ': ' + formatNoxAxisValue(ctx.parsed.y) + (unit ? ' ' + unit : '');
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            title: { display: true, text: xLabel, font: { size: 14, weight: 'bold' }, color: '#475569' },
+            grid: { color: 'rgba(0,0,0,0.08)' },
+            ticks: { color: '#475569', font: { size: 12 } }
+          },
+          y: {
+            type: 'linear',
+            title: {
+              display: true,
+              text: 'NOx Emission',
+              font: { size: 14, weight: 'bold' },
+              color: '#475569'
+            },
+            grid: { color: 'rgba(0,0,0,0.08)' },
+            ticks: {
+              color: '#475569',
+              font: { size: 12 },
+              maxTicksLimit: 8,
+              callback: function(value) {
+                return formatNoxAxisValue(value);
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  noxCRChart   = makeNoxChart('noxCRChart',   'Compression Ratio');
+  noxLoadChart = makeNoxChart('noxLoadChart', 'Brake Load (kg)');
+}
+
+function getNoxUnit() {
+  var unitSel = document.getElementById('nox-unit').value;
+  if (unitSel === 'custom') {
+    return (document.getElementById('nox-custom-unit-label').value.trim() || 'custom');
+  }
+  return unitSel;
+}
+
+function addNoxPoint() {
+  var fuelSel   = document.getElementById('nox-fuel');
+  var fuelKey   = fuelSel.value;
+  var fuelLabel = fuelSel.options[fuelSel.selectedIndex].text;
+  var cr        = parseFloat(document.getElementById('nox-cr').value);
+  var load      = parseFloat(document.getElementById('nox-load').value);
+  var nox       = parseFloat(document.getElementById('nox-value').value);
+  var unit      = getNoxUnit();
+
+  if (isNaN(cr) || cr <= 0) { alert('Please enter a valid Compression Ratio.'); return; }
+  if (isNaN(load) || load < 0) { alert('Please enter a valid Brake Load.'); return; }
+  if (isNaN(nox) || nox < 0) { alert('Please enter a valid NOx emission value.'); return; }
+
+  noxData.push({ fuelKey: fuelKey, fuelLabel: fuelLabel, cr: cr, load: load, nox: nox, unit: unit });
+  renderNoxTable();
+  rebuildNoxCharts();
+}
+
+function removeNoxPoint(idx) {
+  noxData.splice(idx, 1);
+  renderNoxTable();
+  rebuildNoxCharts();
+}
+
+function clearNoxData() {
+  noxData = [];
+  renderNoxTable();
+  rebuildNoxCharts();
+}
+
+function renderNoxTable() {
+  var wrap  = document.getElementById('nox-table-wrap');
+  var tbody = document.getElementById('nox-tbody');
+
+  if (noxData.length === 0) {
+    wrap.style.display  = 'none';
+    tbody.innerHTML     = '';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  tbody.innerHTML = noxData.map(function(d, i) {
+    var c = getNoxColor(d.fuelKey);
+    return '<tr>' +
+      '<td><span class="nox-fuel-dot" style="background:' + c.border + '"></span>' + escapeHtml(d.fuelLabel) + '</td>' +
+      '<td>' + d.cr.toFixed(1) + '</td>' +
+      '<td>' + d.load.toFixed(1) + '</td>' +
+      '<td><b>' + formatNoxAxisValue(d.nox) + '</b></td>' +
+      '<td>' + escapeHtml(d.unit) + '</td>' +
+      '<td><button class="nox-del-btn" onclick="removeNoxPoint(' + i + ')" title="Remove this point">✕</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function rebuildNoxCharts() {
+  if (!noxCRChart || !noxLoadChart) return;
+
+  // Group data by fuelKey
+  var byFuel = {};
+  noxData.forEach(function(d) {
+    if (!byFuel[d.fuelKey]) {
+      byFuel[d.fuelKey] = { label: d.fuelLabel, unit: d.unit, crPts: [], loadPts: [] };
+    }
+    byFuel[d.fuelKey].crPts.push({ x: d.cr, y: d.nox });
+    byFuel[d.fuelKey].loadPts.push({ x: d.load, y: d.nox });
+  });
+
+  // Collect all NOx values for smart y-axis scaling
+  var allNox = noxData.map(function(d) { return d.nox; });
+  var yConfig = getNoxYAxisConfig(allNox);
+
+  // Determine display unit (use first unit seen, or 'NOx' if mixed)
+  var units = noxData.map(function(d) { return d.unit; });
+  var uniqueUnits = units.filter(function(v, i, a) { return a.indexOf(v) === i; });
+  var yLabel = uniqueUnits.length === 1 ? 'NOx Emission (' + uniqueUnits[0] + ')' : 'NOx Emission';
+
+  function buildDatasets(ptKey) {
+    return Object.keys(byFuel).map(function(fuelKey) {
+      var f     = byFuel[fuelKey];
+      var color = getNoxColor(fuelKey);
+      var pts   = f[ptKey].slice().sort(function(a, b) { return a.x - b.x; });
+      return {
+        label: f.label,
+        fuelKey: fuelKey,
+        unit: f.unit,
+        data: pts,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        borderDash: color.dash || [],
+        borderWidth: 2.5,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        pointBackgroundColor: color.border,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        tension: 0.3,
+        fill: false
+      };
+    });
+  }
+
+  var crDS   = buildDatasets('crPts');
+  var loadDS = buildDatasets('loadPts');
+
+  noxCRChart.data.datasets   = crDS;
+  noxLoadChart.data.datasets = loadDS;
+
+  // Update y-axis range and label on both charts
+  [noxCRChart, noxLoadChart].forEach(function(chart) {
+    chart.options.scales.y.min   = yConfig.min;
+    chart.options.scales.y.max   = yConfig.max;
+    chart.options.scales.y.title.text = yLabel;
+    // Dynamic tick step for wide ranges
+    if (allNox.length > 0) {
+      var range = (yConfig.max || 0) - (yConfig.min || 0);
+      chart.options.scales.y.ticks.maxTicksLimit = 8;
+      // Force stepSize based on range magnitude
+      var mag = Math.pow(10, Math.floor(Math.log10(range || 1)));
+      var step = Math.ceil((range / 7) / mag) * mag;
+      chart.options.scales.y.ticks.stepSize = step > 0 ? step : undefined;
+    }
+    chart.update();
+  });
+
+  renderNoxLegend('nox-cr-legend',   crDS);
+  renderNoxLegend('nox-load-legend', loadDS);
+}
+
+function renderNoxLegend(elId, datasets) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  if (!datasets || datasets.length === 0) { el.innerHTML = ''; return; }
+
+  el.innerHTML = datasets.map(function(ds) {
+    var dashStyle;
+    if (ds.borderDash && ds.borderDash.length > 0) {
+      dashStyle = 'border-top: 2.5px dashed ' + ds.borderColor + '; display:inline-block; width:22px; height:3px;';
+    } else {
+      dashStyle = 'background:' + ds.borderColor + '; display:inline-block; width:22px; height:3px; border-radius:2px;';
+    }
+    return '<span class="nox-legend-item">' +
+      '<span style="' + dashStyle + '"></span>' +
+      '<span style="font-size:0.82rem; color:#475569;">' + escapeHtml(ds.label) + '</span>' +
+    '</span>';
+  }).join('');
 }
 
 // ==============================
@@ -643,7 +876,7 @@ function initPCSCharts() {
       plugins: { legend: { display: true, position: 'top' }, title: { display: false } },
       scales: {
         x: { title: { display: true, text: 'Crank Angle (deg)', font: { size: 13, weight: 'bold' } }, grid: { color: 'rgba(0,0,0,0.05)' } },
-        y: { title: { display: true, text: yLabel,              font: { size: 13, weight: 'bold' } }, grid: { color: 'rgba(0,0,0,0.05)' } }
+        y: { title: { display: true, text: yLabel, font: { size: 13, weight: 'bold' } }, grid: { color: 'rgba(0,0,0,0.05)' } }
       }
     };
   }
@@ -707,7 +940,7 @@ function runPCSSimulation() {
     if (theta[j] >= 180 && theta[j] < 540) W_J += 0.5*(P[j]+P[j+1])*(V[j+1]-V[j]);
   }
 
-  var Pmax = Math.max.apply(null, P);
+  var Pmax      = Math.max.apply(null, P);
   var peakAngle = theta[P.indexOf(Pmax)];
 
   if (pcsChartP && pcsChartQ) {
@@ -729,16 +962,31 @@ function runPCSSimulation() {
 // ==============================
 document.addEventListener('DOMContentLoaded', function() {
   initCharts();
+  initNoxCharts();
 
   document.getElementById('fuelType').addEventListener('change', updateFuelProperties);
 
+  // NOx unit select — toggle custom unit input
+  var noxUnitSel = document.getElementById('nox-unit');
+  if (noxUnitSel) {
+    noxUnitSel.addEventListener('change', function() {
+      var customGroup = document.getElementById('nox-custom-unit-group');
+      var label       = document.getElementById('nox-value-label');
+      if (this.value === 'custom') {
+        customGroup.style.display = 'block';
+        label.textContent = 'NOx Emission (custom unit)';
+      } else {
+        customGroup.style.display = 'none';
+        label.textContent = 'NOx Emission (' + this.value + ')';
+      }
+    });
+  }
+
   document.querySelectorAll('input[type="number"]').forEach(function(inp) {
     inp.addEventListener('input', function() {
-      this.value = this.value.replace(/[^0-9.-]/g, '');
+      this.value = this.value.replace(/[^0-9.\-e]/g, '');
     });
   });
-
-  document.querySelector('.calculate-btn').addEventListener('click', calculateAll);
 
   if (document.getElementById('pcs_chartP') && document.getElementById('pcs_chartQ')) {
     initPCSCharts();
